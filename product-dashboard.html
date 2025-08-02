@@ -6,11 +6,27 @@
   <title>Edit Product - 7th Leg</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="assets/css/style.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    .thumb-container {
+      position: relative;
+      cursor: pointer;
+    }
+    .thumb-container img {
+      transition: transform 0.3s ease;
+    }
+    .thumb-container:hover img {
+      transform: scale(1.5);
+      z-index: 10;
+      position: relative;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+  </style>
 </head>
 <body>
   <div id="header"></div>
 
-  <div class="container py-5" style="max-width:600px;">
+  <div class="container py-5" style="max-width:900px;">
     <h2 class="text-center mb-4">Edit Product</h2>
     <form id="edit-product-form">
       <div class="mb-3">
@@ -30,10 +46,6 @@
         <input type="number" class="form-control" id="qty" required>
       </div>
       <div class="mb-3">
-        <label class="form-label">Image URL</label>
-        <input type="url" class="form-control" id="image_url" required>
-      </div>
-      <div class="mb-3">
         <label class="form-label">Status</label>
         <select class="form-select" id="status">
           <option value="true">Enabled</option>
@@ -43,9 +55,47 @@
       <button type="submit" class="btn btn-success w-100">Update Product</button>
       <div id="form-message" class="mt-3 text-center"></div>
     </form>
+
+    <hr class="my-5">
+
+    <div>
+      <h4>Product Images</h4>
+      <form id="upload-form" class="mb-3">
+        <input type="file" id="fileInput" class="form-control" multiple accept="image/*">
+        <button type="submit" class="btn btn-success mt-2">Upload Images</button>
+      </form>
+      <table class="table table-bordered align-middle">
+        <thead>
+          <tr>
+            <th>Drag</th>
+            <th>Thumbnail</th>
+            <th>Main</th>
+            <th>Visible</th>
+            <th>Delete</th>
+          </tr>
+        </thead>
+        <tbody id="imageTableBody"></tbody>
+      </table>
+      <button id="saveOrderBtn" class="btn btn-primary">Save Order</button>
+      <div id="image-message" class="mt-3 text-center"></div>
+    </div>
   </div>
 
   <div id="footer"></div>
+
+  <!-- Modal for full-size image -->
+  <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content bg-dark">
+        <div class="modal-body text-center">
+          <img id="modalImage" src="" alt="Full Size" class="img-fluid rounded">
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -55,6 +105,12 @@
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get("id");
+
+    const msgEl = document.getElementById("form-message");
+    const imageMsgEl = document.getElementById("image-message");
+    const imageTableBody = document.getElementById("imageTableBody");
+    const modalImage = document.getElementById("modalImage");
+    const imageModal = new bootstrap.Modal(document.getElementById("imageModal"));
 
     async function loadProduct() {
       if (!productId) {
@@ -90,29 +146,101 @@
         return;
       }
 
-      // Fill form
       document.getElementById("name").value = product.name;
       document.getElementById("description").value = product.description;
       document.getElementById("price").value = product.price;
       document.getElementById("qty").value = product.qty || 0;
-      document.getElementById("image_url").value = product.image_url;
       document.getElementById("status").value = product.status ? "true" : "false";
+
+      loadImages();
+    }
+
+    async function loadImages() {
+      const { data: images, error } = await window.supabase
+        .from("product_images")
+        .select("*")
+        .eq("product_id", productId)
+        .order("sort_order", { ascending: true });
+
+      if (error) {
+        console.error("Failed to load images:", error.message);
+        return;
+      }
+
+      imageTableBody.innerHTML = "";
+      images.forEach(img => {
+        const row = document.createElement("tr");
+        row.dataset.imageId = img.id;
+        if (img.is_main) row.classList.add("table-success");
+
+        row.innerHTML = `
+          <td class="text-center align-middle"><span style="cursor:grab;">⠿</span></td>
+          <td class="thumb-container text-center">
+            <img src="${img.image_url}" class="img-fluid rounded" style="max-height:80px; cursor:pointer;">
+          </td>
+          <td class="text-center align-middle">
+            <input type="checkbox" class="mainToggle" ${img.is_main ? "checked" : ""}>
+          </td>
+          <td class="text-center align-middle">
+            <input type="checkbox" class="statusToggle" ${img.status ? "checked" : ""}>
+          </td>
+          <td class="text-center align-middle">
+            <button class="btn btn-sm btn-danger deleteBtn">Delete</button>
+          </td>
+        `;
+
+        // Thumbnail click → modal
+        row.querySelector("img").addEventListener("click", () => {
+          modalImage.src = img.image_url;
+          imageModal.show();
+        });
+
+        // Main toggle
+        row.querySelector(".mainToggle").addEventListener("change", async (e) => {
+          if (e.target.checked) {
+            await window.supabase.from("product_images")
+              .update({ is_main: false })
+              .eq("product_id", productId);
+            await window.supabase.from("product_images")
+              .update({ is_main: true })
+              .eq("id", img.id);
+          } else {
+            await window.supabase.from("product_images")
+              .update({ is_main: false })
+              .eq("id", img.id);
+          }
+          loadImages();
+        });
+
+        // Visible toggle
+        row.querySelector(".statusToggle").addEventListener("change", async (e) => {
+          await window.supabase.from("product_images")
+            .update({ status: e.target.checked })
+            .eq("id", img.id);
+        });
+
+        // Delete handler
+        row.querySelector(".deleteBtn").addEventListener("click", async () => {
+          await window.supabase.from("product_images").delete().eq("id", img.id);
+          loadImages();
+        });
+
+        imageTableBody.appendChild(row);
+      });
+
+      Sortable.create(imageTableBody, { animation: 150 });
     }
 
     document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-
       const name = document.getElementById("name").value;
       const description = document.getElementById("description").value;
       const price = document.getElementById("price").value;
       const qty = document.getElementById("qty").value;
-      const image_url = document.getElementById("image_url").value;
       const status = document.getElementById("status").value === "true";
 
-      const msgEl = document.getElementById("form-message");
-
       const { error } = await window.supabase.from("products")
-        .update({ name, description, price, qty, image_url, status })
+        .update({ name, description, price, qty, status })
         .eq("id", productId);
 
       if (error) {
@@ -122,6 +250,52 @@
         msgEl.textContent = "✅ Product updated successfully!";
         msgEl.className = "text-success text-center";
       }
+    });
+
+    document.getElementById("upload-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const files = document.getElementById("fileInput").files;
+      if (!files.length) return;
+
+      for (let file of files) {
+        const timestamp = Date.now();
+        const filePath = `${productId}/${timestamp}_${file.name}`;
+        const { error: uploadError } = await window.supabase.storage
+          .from("product-images")
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error("Upload failed:", uploadError.message);
+          imageMsgEl.textContent = "Upload failed: " + uploadError.message;
+          imageMsgEl.className = "text-danger text-center";
+        } else {
+          const { data } = window.supabase.storage
+            .from("product-images")
+            .getPublicUrl(filePath);
+          await window.supabase.from("product_images").insert({
+            product_id: productId,
+            image_url: data.publicUrl,
+            is_main: false,
+            status: true,
+            sort_order: 999
+          });
+          loadImages();
+          imageMsgEl.textContent = "✅ Upload successful!";
+          imageMsgEl.className = "text-success text-center";
+        }
+      }
+    });
+
+    document.getElementById("saveOrderBtn").addEventListener("click", async () => {
+      const rows = Array.from(imageTableBody.querySelectorAll("tr"));
+      for (let i = 0; i < rows.length; i++) {
+        const imageId = rows[i].dataset.imageId;
+        await window.supabase.from("product_images")
+          .update({ sort_order: i + 1 })
+          .eq("id", imageId);
+      }
+      imageMsgEl.textContent = "✅ Image order saved!";
+      imageMsgEl.className = "text-success text-center";
     });
 
     loadProduct();
