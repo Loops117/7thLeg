@@ -22,6 +22,9 @@
       <li class="nav-item d-none" id="products-tab-item" role="presentation">
         <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab">Products</button>
       </li>
+      <li class="nav-item d-none" id="categories-tab-item" role="presentation">
+        <button class="nav-link" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button" role="tab">Categories</button>
+      </li>
     </ul>
 
     <div class="tab-content mt-4">
@@ -40,6 +43,18 @@
           <p>Loading products...</p>
         </div>
       </div>
+      <div class="tab-pane fade" id="categories" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0">Manage Categories</h4>
+        </div>
+        <form class="d-flex mb-3" onsubmit="addCategory(event)">
+          <input type="text" id="new-category-name" class="form-control me-2" placeholder="New category name" required>
+          <button class="btn btn-success">Add</button>
+        </form>
+        <div id="categories-list">
+          <p>Loading categories...</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -47,10 +62,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <script src="assets/js/config.js"></script>
   <script src="assets/js/include.js"></script>
   <script src="assets/js/header-auth.js"></script>
   <script>
+    let categories = [];
+
     async function loadDashboard() {
       const { data: { user } } = await window.supabase.auth.getUser();
 
@@ -67,14 +85,31 @@
 
       if (profile?.role === "admin") {
         document.getElementById("products-tab-item").classList.remove("d-none");
+        document.getElementById("categories-tab-item").classList.remove("d-none");
         loadProducts();
+        loadCategoriesTab();
       }
     }
 
     async function loadProducts() {
+      // Fetch categories first
+      const { data: catData, error: catError } = await window.supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (catError) {
+        console.error("Failed to load categories:", catError.message);
+        return;
+      }
+      categories = catData;
+
+      // Fetch products
       const { data: products, error } = await window.supabase
         .from("products")
-        .select("*");
+        .select("*")
+        .order("category_id", { ascending: true })
+        .order("sort_order", { ascending: true });
 
       const container = document.getElementById("product-table-container");
 
@@ -92,19 +127,20 @@
         <table class="table table-striped">
           <thead>
             <tr>
+              <th>Drag</th>
               <th>Image</th>
               <th>Name</th>
+              <th>Category</th>
               <th>Price</th>
               <th>Qty</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="sortable-products">
       `;
 
       for (let p of products) {
-        // Fetch the main enabled image
         let { data: images } = await window.supabase
           .from("product_images")
           .select("image_url, is_main")
@@ -118,10 +154,21 @@
           ? images[0].image_url
           : "assets/images/placeholder.png";
 
+        let categoryOptions = categories.map(c =>
+          `<option value="${c.id}" ${c.id === p.category_id ? "selected" : ""}>${c.name}</option>`
+        ).join("");
+
         html += `
-          <tr>
+          <tr data-id="${p.id}">
+            <td style="cursor:grab;">☰</td>
             <td><img src="${imageUrl}" alt="${p.name}" style="max-height:50px;"></td>
             <td>${p.name}</td>
+            <td>
+              <select id="cat-${p.id}" class="form-select form-select-sm">
+                <option value="">Uncategorized</option>
+                ${categoryOptions}
+              </select>
+            </td>
             <td><input type="number" value="${p.price}" step="0.01" id="price-${p.id}" class="form-control form-control-sm"></td>
             <td><input type="number" value="${p.qty || 0}" id="qty-${p.id}" class="form-control form-control-sm"></td>
             <td>${p.status ? "Enabled" : "Disabled"}</td>
@@ -138,14 +185,16 @@
 
       html += "</tbody></table>";
       container.innerHTML = html;
+      initSortable();
     }
 
     async function updateProduct(id) {
       const price = document.getElementById(`price-${id}`).value;
       const qty = document.getElementById(`qty-${id}`).value;
+      const category_id = document.getElementById(`cat-${id}`).value || null;
 
       const { error } = await window.supabase.from("products")
-        .update({ price, qty })
+        .update({ price, qty, category_id })
         .eq("id", id);
 
       if (error) alert("Update failed: " + error.message);
@@ -159,6 +208,98 @@
 
       if (error) alert("Failed to update status: " + error.message);
       else loadProducts();
+    }
+
+    function initSortable() {
+      const el = document.getElementById("sortable-products");
+      if (!el) return;
+
+      Sortable.create(el, {
+        handle: "td:first-child",
+        animation: 150,
+        onEnd: async function () {
+          const rows = [...el.children];
+          for (let i = 0; i < rows.length; i++) {
+            const id = rows[i].dataset.id;
+            await window.supabase.from("products")
+              .update({ sort_order: i })
+              .eq("id", id);
+          }
+          console.log("✅ Sort order updated");
+        }
+      });
+    }
+
+    async function loadCategoriesTab() {
+      const { data, error } = await window.supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+
+      const container = document.getElementById("categories-list");
+
+      if (error) {
+        container.innerHTML = '<p class="text-danger">Failed to load categories.</p>';
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '<p>No categories yet.</p>';
+        return;
+      }
+
+      let html = `
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      for (let c of data) {
+        html += `
+          <tr>
+            <td>${c.name}</td>
+            <td>
+              <button class="btn btn-sm btn-danger" onclick="deleteCategory(${c.id})">Delete</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      html += "</tbody></table>";
+      container.innerHTML = html;
+    }
+
+    async function addCategory(event) {
+      event.preventDefault();
+      const name = document.getElementById("new-category-name").value.trim();
+
+      if (!name) return;
+
+      const { error } = await window.supabase.from("categories").insert({ name });
+
+      if (error) alert("Failed to add category: " + error.message);
+      else {
+        document.getElementById("new-category-name").value = "";
+        loadCategoriesTab();
+        alert("✅ Category added!");
+      }
+    }
+
+    async function deleteCategory(id) {
+      if (!confirm("Are you sure you want to delete this category?")) return;
+
+      const { error } = await window.supabase.from("categories").delete().eq("id", id);
+
+      if (error) alert("Failed to delete category: " + error.message);
+      else {
+        loadCategoriesTab();
+        alert("✅ Category deleted!");
+      }
     }
 
     loadDashboard();

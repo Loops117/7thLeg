@@ -9,8 +9,22 @@
   <style>
     .product-card img {
       height: 250px;
-      object-fit: contain;
+      object-fit: cover;
       background: #f8f9fa;
+    }
+    .category-tag {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: #198754;
+      color: #fff;
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      border-radius: 0.5rem;
+    }
+    .filter-bar {
+      max-width: 300px;
+      margin: 0 auto 30px;
     }
   </style>
 </head>
@@ -19,6 +33,14 @@
 
   <div class="container py-5">
     <h2 class="text-center mb-4">Our Products</h2>
+
+    <!-- Category Filter -->
+    <div class="filter-bar">
+      <select id="categoryFilter" class="form-select">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+
     <div id="product-list" class="row g-4">
       <p class="text-center">Loading products...</p>
     </div>
@@ -32,11 +54,36 @@
   <script src="assets/js/include.js"></script>
   <script src="assets/js/header-auth.js"></script>
   <script>
-    async function loadProducts() {
-      const { data: products, error } = await window.supabase
+    let categories = [];
+
+    async function loadCategories() {
+      const { data, error } = await window.supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (!error && data) {
+        categories = data;
+        const filter = document.getElementById("categoryFilter");
+        for (let c of categories) {
+          filter.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        }
+      }
+    }
+
+    async function loadProducts(filterCategory = "") {
+      let query = window.supabase
         .from("products")
         .select("*")
-        .eq("status", true);
+        .eq("status", true)
+        .order("category_id", { ascending: true })
+        .order("sort_order", { ascending: true });
+
+      if (filterCategory) {
+        query = query.eq("category_id", filterCategory);
+      }
+
+      const { data: products, error } = await query;
 
       const container = document.getElementById("product-list");
 
@@ -65,9 +112,12 @@
           ? images[0].image_url
           : "assets/images/placeholder.png";
 
+        let categoryName = categories.find(c => c.id === p.category_id)?.name || "Uncategorized";
+
         container.innerHTML += `
           <div class="col-md-4">
-            <div class="card product-card h-100">
+            <div class="card product-card h-100 position-relative">
+              <span class="category-tag">${categoryName}</span>
               <img src="${imageUrl}" class="card-img-top" alt="${p.name}">
               <div class="card-body d-flex flex-column">
                 <h5 class="card-title">${p.name}</h5>
@@ -80,7 +130,16 @@
         `;
       }
     }
-    loadProducts();
+
+    // Handle filter changes
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadCategories();
+      await loadProducts();
+
+      document.getElementById("categoryFilter").addEventListener("change", (e) => {
+        loadProducts(e.target.value);
+      });
+    });
   </script>
 </body>
 </html>

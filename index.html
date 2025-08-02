@@ -16,23 +16,28 @@
       white-space: nowrap;
       padding-bottom: 1rem;
     }
+
     .product-card {
       flex: 0 0 auto;
       width: 250px;
-      height: 100%; /* ensures consistent card height */
+      height: 100%;
+      /* ensures consistent card height */
       display: flex;
       flex-direction: column;
     }
+
     .product-card img {
       height: 200px;
-      object-fit: contain;
+      object-fit: cover;
       background: #f8f9fa;
     }
+
     .product-card .card-body {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      height: 180px; /* uniform content area */
+      height: 120px;
+      /* uniform content area */
     }
   </style>
 </head>
@@ -41,8 +46,10 @@
   <div id="header"></div>
 
   <div class="hero-section position-relative text-light text-center">
-    <video autoplay muted loop playsinline class="w-100 h-100 position-absolute top-0 start-0 object-fit-cover" style="z-index:-1;">
-      <source src="https://ugdszfbhvpqomozthuoy.supabase.co/storage/v1/object/public/videos/background1.mp4" type="video/mp4">
+    <video autoplay muted loop playsinline class="w-100 h-100 position-absolute top-0 start-0 object-fit-cover"
+      style="z-index:-1;">
+      <source src="https://ugdszfbhvpqomozthuoy.supabase.co/storage/v1/object/public/videos/background1.mp4"
+        type="video/mp4">
       Your browser does not support the video tag.
     </video>
     <div class="position-absolute top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.4); z-index:-1;"></div>
@@ -54,17 +61,27 @@
     </div>
   </div>
 
+  <!-- About Us Section -->
+  <div id="about" class="bg-light py-5">
+    <div class="container text-center">
+      <h2>About Us</h2>
+      <p>
+        At 7th Leg, we’re redefining the insect-keeping hobby with innovation at every turn. From sleek, modern feeding
+        dishes to fully automated ecosystems, our products are designed to make caring for your critters easier, smarter,
+        and a whole lot more fun.
+      </p>
+      <p>
+        Whether you’re a seasoned keeper or just starting out, our specialty is creating tools and habitats that
+        transform everyday care into an effortless experience — so you can focus on enjoying the incredible world of
+        your insects.
+      </p>
+    </div>
+
+  </div>
   <div id="products" class="container py-5">
     <h2 class="text-center mb-4">Our Products</h2>
     <div id="product-list" class="product-scroll">
       <p class="text-center">Loading products...</p>
-    </div>
-  </div>
-
-  <div id="about" class="bg-light py-5">
-    <div class="container text-center">
-      <h2>About Us</h2>
-      <p>7th Leg develops innovative monitoring solutions for enthusiasts, hobbyists, and professionals. Our systems ensure your enclosures are thriving and safe.</p>
     </div>
   </div>
 
@@ -112,8 +129,6 @@
             <img src="${imageUrl}" class="card-img-top" alt="${p.name}">
             <div class="card-body">
               <h5 class="card-title">${p.name}</h5>
-              <p class="card-text">${p.description.substring(0, 80)}...</p>
-              <p class="fw-bold">$${p.price}</p>
               <a href="product-view.html?id=${p.id}" class="btn btn-success mt-auto">See More</a>
             </div>
           </div>
@@ -130,4 +145,5 @@
     loadProducts();
   </script>
 </body>
+
 </html>

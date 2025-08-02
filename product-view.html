@@ -93,6 +93,7 @@
         <img src="${img.image_url}" data-bs-target="#productCarousel" data-bs-slide-to="${i}" class="${i === 0 ? "active" : ""}">
       `).join("");
 
+      // build basic layout first
       container.innerHTML = `
         <div class="row">
           <div class="col-md-6 text-center">
@@ -116,13 +117,16 @@
             <p>${product.description}</p>
             <p class="fw-bold fs-4">$${product.price}</p>
             <p><strong>Available:</strong> ${product.qty || 0}</p>
-            <button class="btn btn-success btn-lg" onclick="buyProduct(${product.id})">
-              Buy Now
-            </button>
+            <div id="action-buttons">
+              <button class="btn btn-success btn-lg" onclick="buyProduct(${product.id})">
+                Buy Now
+              </button>
+            </div>
           </div>
         </div>
       `;
 
+      // set up carousel thumbs
       const thumbs = document.querySelectorAll(".thumb-gallery img");
       const carousel = document.querySelector("#productCarousel");
       const bsCarousel = new bootstrap.Carousel(carousel);
@@ -139,6 +143,25 @@
         thumbs.forEach(t => t.classList.remove("active"));
         thumbs[e.to].classList.add("active");
       });
+
+      // check if user is admin
+      const { data: { user } } = await window.supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await window.supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (profile?.role === "admin") {
+          const actionDiv = document.getElementById("action-buttons");
+          actionDiv.innerHTML += `
+            <a href="product-dashboard.html?id=${product.id}" class="btn btn-primary btn-lg ms-2">
+              Edit
+            </a>
+          `;
+        }
+      }
     }
 
     function buyProduct(id) {
