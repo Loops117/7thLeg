@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ${user.user_metadata.full_name || user.email}
         </a>
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenu">
-          <li><a class="dropdown-item" href="dashboard.html">Dashboard</a></li>
+          <li><a class="dropdown-item" href="/dashboard.html">Dashboard</a></li>
           <li><button class="dropdown-item" onclick="logout()">Logout</button></li>
         </ul>
       </li>

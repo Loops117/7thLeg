@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,53 +8,108 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="assets/css/style.css" rel="stylesheet">
 </head>
+
 <body>
   <div id="header"></div>
 
+  <style>
+    .dashboard-layout {
+      display: flex;
+    }
+
+    .dashboard-tabs {
+      min-width: 200px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 0;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .dashboard-tabs .nav-link {
+      border-radius: 0;
+      margin: 0;
+      padding: 12px 16px;
+      color: #333;
+      text-align: left;
+    }
+
+    .dashboard-tabs .nav-link.active {
+      background-color: #198754;
+      color: #fff;
+      font-weight: 600;
+      width: 100%;
+    }
+
+    .dashboard-content {
+      flex-grow: 1;
+      padding-left: 2rem;
+    }
+
+    .highlight-row {
+      background-color: #fff3cd !important;
+      transition: background-color 1s ease;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+  </style>
+
   <div class="container py-5">
     <h2 class="text-center mb-4">Dashboard</h2>
-    <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">Profile</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button" role="tab">Orders</button>
-      </li>
-      <li class="nav-item d-none" id="products-tab-item" role="presentation">
-        <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab">Products</button>
-      </li>
-      <li class="nav-item d-none" id="categories-tab-item" role="presentation">
-        <button class="nav-link" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button" role="tab">Categories</button>
-      </li>
-    </ul>
+    <div class="dashboard-layout">
+      <!-- Sidebar Tabs -->
+      <ul class="nav flex-column nav-pills dashboard-tabs" id="dashboardTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active w-100" data-bs-toggle="pill"
+            data-bs-target="#profile">Profile</button></li>
+        <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill"
+            data-bs-target="#inventory">Inventory</button></li>
+        <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill"
+            data-bs-target="#wishlist">Wishlist</button></li>
+        <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#myauctions">My
+            Auctions</button></li>
+        <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#mytrades">My
+            Trades</button></li>
+        <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#mystore">My
+            Store</button></li>
+        <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill"
+            data-bs-target="#orders">Orders</button></li>
+        <!-- Admin Tabs -->
+        <li class="nav-item d-none" id="products-tab-item">
+          <button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#products">Products</button>
+        </li>
+        <li class="nav-item d-none" id="categories-tab-item">
+          <button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#categories">Categories</button>
+        </li>
+      </ul>
 
-    <div class="tab-content mt-4">
-      <div class="tab-pane fade show active" id="profile" role="tabpanel">
-        <p>Welcome to your profile.</p>
-      </div>
-      <div class="tab-pane fade" id="orders" role="tabpanel">
-        <p>Your orders will appear here.</p>
-      </div>
-      <div class="tab-pane fade" id="products" role="tabpanel">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h4 class="mb-0">Product Management</h4>
-          <a href="add.product.html" class="btn btn-success btn-sm">+ New Product</a>
+      <!-- Tab Content -->
+      <div class="tab-content dashboard-content">
+        <div class="tab-pane fade show active" id="profile">Loading...</div>
+
+        <div class="tab-pane fade" id="inventory">
+          <div class="toolbar">
+            <button class="btn btn-success btn-sm" onclick="openAddSpecies()">➕ Add Species</button>
+            <button class="btn btn-outline-primary btn-sm" onclick="copyInventory()">📋 Copy</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="exportInventory()">⬇ Export CSV</button>
+            <button class="btn btn-outline-info btn-sm" onclick="shareInventory()">🔗 Share</button>
+          </div>
+          <div id="inventory-table-container">Loading...</div>
         </div>
-        <div id="product-table-container">
-          <p>Loading products...</p>
-        </div>
-      </div>
-      <div class="tab-pane fade" id="categories" role="tabpanel">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h4 class="mb-0">Manage Categories</h4>
-        </div>
-        <form class="d-flex mb-3" onsubmit="addCategory(event)">
-          <input type="text" id="new-category-name" class="form-control me-2" placeholder="New category name" required>
-          <button class="btn btn-success">Add</button>
-        </form>
-        <div id="categories-list">
-          <p>Loading categories...</p>
-        </div>
+
+        <div class="tab-pane fade" id="wishlist">Loading...</div>
+        <div class="tab-pane fade" id="myauctions">Loading...</div>
+        <div class="tab-pane fade" id="mytrades">Loading...</div>
+        <div class="tab-pane fade" id="mystore">Loading...</div>
+        <div class="tab-pane fade" id="orders">Loading...</div>
+        <div class="tab-pane fade" id="products">Loading...</div>
+        <div class="tab-pane fade" id="categories">Loading...</div>
+
+        <!-- Hidden edit tab -->
+        <div class="tab-pane fade" id="edit-species">Loading...</div>
       </div>
     </div>
   </div>
@@ -67,16 +123,87 @@
   <script src="assets/js/include.js"></script>
   <script src="assets/js/header-auth.js"></script>
   <script>
-    let categories = [];
+    const tabMap = {
+      profile: "tabs/profile.html",
+      inventory: "tabs/inventory.html",
+      wishlist: "tabs/wishlist.html",
+      myauctions: "tabs/myauctions.html",
+      mytrades: "tabs/mytrades.html",
+      mystore: "tabs/mystore.html",
+      orders: "tabs/orders.html",
+      products: "tabs/products.html",
+      categories: "tabs/categories.html",
+      "edit-species": "tabs/Inventory/edit.species.html"
+    };
 
+    // ✅ Loader with event dispatch
+    window.loadTabContent = async function (tabId, filePath) {
+      const container = document.getElementById(tabId);
+      try {
+        const response = await fetch(filePath);
+        if (!response.ok) throw new Error("Failed to load tab content.");
+        container.innerHTML = await response.text();
+
+        let jsFile;
+        if (tabId === "edit-species") {
+          jsFile = "tabs/Inventory/edit.species.js";
+        } else {
+          jsFile = `tabs/${tabId}.js`;
+        }
+
+        const res = await fetch(jsFile, { method: "HEAD" });
+        if (res.ok) {
+          await new Promise((resolve) => {
+            const script = document.createElement("script");
+            script.src = jsFile + "?v=" + Date.now();
+            script.onload = resolve;
+            script.onerror = resolve;
+            document.body.appendChild(script);
+          });
+        }
+
+        // Fire custom event so listeners can be reattached
+        document.dispatchEvent(new Event("tabContentReloaded"));
+
+      } catch (err) {
+        container.innerHTML = `<p class="text-danger">${err.message}</p>`;
+      }
+    };
+
+    // ✅ Central handler
+    async function handleTabShown(e) {
+      const targetId = e.target.getAttribute('data-bs-target').substring(1);
+      if (tabMap[targetId]) {
+        await window.loadTabContent(targetId, tabMap[targetId]);
+      }
+    }
+
+    // ✅ Function to (re)attach listeners
+    function attachTabListeners() {
+      document.querySelectorAll('#dashboardTabs button[data-bs-toggle="pill"]').forEach(tabBtn => {
+        tabBtn.removeEventListener('shown.bs.tab', handleTabShown);
+        tabBtn.addEventListener('shown.bs.tab', handleTabShown);
+      });
+      console.log("✅ Dashboard tab listeners attached");
+    }
+
+    // Attach listeners initially
+    attachTabListeners();
+
+    // Reattach after content reloads
+    document.addEventListener("tabContentReloaded", attachTabListeners);
+
+    // Load default tab
+    window.loadTabContent("profile", tabMap["profile"]);
+
+    // Admin check
     async function loadDashboard() {
       const { data: { user } } = await window.supabase.auth.getUser();
-
       if (!user) {
-        document.querySelector(".container").innerHTML = "<div class='alert alert-danger'>You must be logged in to view the dashboard.</div>";
+        document.querySelector(".container").innerHTML =
+          "<div class='alert alert-danger'>You must be logged in to view the dashboard.</div>";
         return;
       }
-
       const { data: profile } = await window.supabase
         .from("profiles")
         .select("role")
@@ -86,222 +213,8 @@
       if (profile?.role === "admin") {
         document.getElementById("products-tab-item").classList.remove("d-none");
         document.getElementById("categories-tab-item").classList.remove("d-none");
-        loadProducts();
-        loadCategoriesTab();
       }
     }
-
-    async function loadProducts() {
-      // Fetch categories first
-      const { data: catData, error: catError } = await window.supabase
-        .from("categories")
-        .select("*")
-        .order("name", { ascending: true });
-
-      if (catError) {
-        console.error("Failed to load categories:", catError.message);
-        return;
-      }
-      categories = catData;
-
-      // Fetch products
-      const { data: products, error } = await window.supabase
-        .from("products")
-        .select("*")
-        .order("category_id", { ascending: true })
-        .order("sort_order", { ascending: true });
-
-      const container = document.getElementById("product-table-container");
-
-      if (error) {
-        container.innerHTML = '<p class="text-danger">Failed to load products.</p>';
-        return;
-      }
-
-      if (!products || products.length === 0) {
-        container.innerHTML = '<p class="text-center">No products found.</p>';
-        return;
-      }
-
-      let html = `
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Drag</th>
-              <th>Image</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Qty</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="sortable-products">
-      `;
-
-      for (let p of products) {
-        let { data: images } = await window.supabase
-          .from("product_images")
-          .select("image_url, is_main")
-          .eq("product_id", p.id)
-          .eq("status", true)
-          .order("is_main", { ascending: false })
-          .order("sort_order", { ascending: true })
-          .limit(1);
-
-        let imageUrl = images && images.length > 0
-          ? images[0].image_url
-          : "assets/images/placeholder.png";
-
-        let categoryOptions = categories.map(c =>
-          `<option value="${c.id}" ${c.id === p.category_id ? "selected" : ""}>${c.name}</option>`
-        ).join("");
-
-        html += `
-          <tr data-id="${p.id}">
-            <td style="cursor:grab;">☰</td>
-            <td><img src="${imageUrl}" alt="${p.name}" style="max-height:50px;"></td>
-            <td>${p.name}</td>
-            <td>
-              <select id="cat-${p.id}" class="form-select form-select-sm">
-                <option value="">Uncategorized</option>
-                ${categoryOptions}
-              </select>
-            </td>
-            <td><input type="number" value="${p.price}" step="0.01" id="price-${p.id}" class="form-control form-control-sm"></td>
-            <td><input type="number" value="${p.qty || 0}" id="qty-${p.id}" class="form-control form-control-sm"></td>
-            <td>${p.status ? "Enabled" : "Disabled"}</td>
-            <td>
-              <button class="btn btn-sm btn-primary" onclick="updateProduct(${p.id})">Update</button>
-              <button class="btn btn-sm ${p.status ? 'btn-warning' : 'btn-success'}" onclick="toggleProduct(${p.id}, ${p.status})">
-                ${p.status ? 'Disable' : 'Enable'}
-              </button>
-              <a class="btn btn-sm btn-info" href="product-dashboard.html?id=${p.id}">Edit</a>
-            </td>
-          </tr>
-        `;
-      }
-
-      html += "</tbody></table>";
-      container.innerHTML = html;
-      initSortable();
-    }
-
-    async function updateProduct(id) {
-      const price = document.getElementById(`price-${id}`).value;
-      const qty = document.getElementById(`qty-${id}`).value;
-      const category_id = document.getElementById(`cat-${id}`).value || null;
-
-      const { error } = await window.supabase.from("products")
-        .update({ price, qty, category_id })
-        .eq("id", id);
-
-      if (error) alert("Update failed: " + error.message);
-      else alert("✅ Product updated!");
-    }
-
-    async function toggleProduct(id, status) {
-      const { error } = await window.supabase.from("products")
-        .update({ status: !status })
-        .eq("id", id);
-
-      if (error) alert("Failed to update status: " + error.message);
-      else loadProducts();
-    }
-
-    function initSortable() {
-      const el = document.getElementById("sortable-products");
-      if (!el) return;
-
-      Sortable.create(el, {
-        handle: "td:first-child",
-        animation: 150,
-        onEnd: async function () {
-          const rows = [...el.children];
-          for (let i = 0; i < rows.length; i++) {
-            const id = rows[i].dataset.id;
-            await window.supabase.from("products")
-              .update({ sort_order: i })
-              .eq("id", id);
-          }
-          console.log("✅ Sort order updated");
-        }
-      });
-    }
-
-    async function loadCategoriesTab() {
-      const { data, error } = await window.supabase
-        .from("categories")
-        .select("*")
-        .order("name", { ascending: true });
-
-      const container = document.getElementById("categories-list");
-
-      if (error) {
-        container.innerHTML = '<p class="text-danger">Failed to load categories.</p>';
-        return;
-      }
-
-      if (!data || data.length === 0) {
-        container.innerHTML = '<p>No categories yet.</p>';
-        return;
-      }
-
-      let html = `
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
-
-      for (let c of data) {
-        html += `
-          <tr>
-            <td>${c.name}</td>
-            <td>
-              <button class="btn btn-sm btn-danger" onclick="deleteCategory(${c.id})">Delete</button>
-            </td>
-          </tr>
-        `;
-      }
-
-      html += "</tbody></table>";
-      container.innerHTML = html;
-    }
-
-    async function addCategory(event) {
-      event.preventDefault();
-      const name = document.getElementById("new-category-name").value.trim();
-
-      if (!name) return;
-
-      const { error } = await window.supabase.from("categories").insert({ name });
-
-      if (error) alert("Failed to add category: " + error.message);
-      else {
-        document.getElementById("new-category-name").value = "";
-        loadCategoriesTab();
-        alert("✅ Category added!");
-      }
-    }
-
-    async function deleteCategory(id) {
-      if (!confirm("Are you sure you want to delete this category?")) return;
-
-      const { error } = await window.supabase.from("categories").delete().eq("id", id);
-
-      if (error) alert("Failed to delete category: " + error.message);
-      else {
-        loadCategoriesTab();
-        alert("✅ Category deleted!");
-      }
-    }
-
     loadDashboard();
   </script>
 </body>
