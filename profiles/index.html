@@ -3,29 +3,145 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Profile</title>
+  <title>User Profile - 7th Leg</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
+  <div id="header"></div>
+
   <div class="container py-5">
-    <div id="profile-header" class="mb-4">
-      <h2 id="user-name">Loading profile...</h2>
+    <div class="text-center mb-5">
+      <h1 id="user-name">Loading profile...</h1>
       <p id="user-role" class="text-muted"></p>
     </div>
 
-    <h4>Inventory</h4>
-    <div id="public-inventory">
-      <p>Loading inventory...</p>
-    </div>
-
-    <h4 class="mt-4">Wishlist</h4>
-    <div id="public-wishlist">
-      <p>Loading wishlist...</p>
+    <div class="row">
+      <div class="col-md-6">
+        <h4>Inventory</h4>
+        <div id="public-inventory" class="mb-4">
+          <p>Loading inventory...</p>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <h4>Wishlist</h4>
+        <div id="public-wishlist">
+          <p>Loading wishlist...</p>
+        </div>
+      </div>
     </div>
   </div>
 
+  <div id="footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/assets/js/config.js"></script>
-  <script src="/assets/js/userprofile.js"></script>
+  <script src="/assets/js/include.js"></script>
+  <script src="/assets/js/header-auth.js"></script>
+  <script>
+    console.log("✅ userprofile.js inline loaded");
+
+    (async function() {
+      const params = new URLSearchParams(window.location.search);
+      const userId = params.get("id");
+
+      if (!userId) {
+        document.body.innerHTML = "<div class='container py-5'><p class='text-danger'>❌ No user specified.</p></div>";
+        return;
+      }
+
+      // Load profile info
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("full_name, role")
+        .eq("id", userId)
+        .single();
+
+      if (profileError || !profile) {
+        document.getElementById("user-name").textContent = "User Not Found";
+        document.getElementById("user-role").textContent = "";
+      } else {
+        document.getElementById("user-name").textContent = profile.full_name || "Unnamed User";
+        document.getElementById("user-role").textContent = profile.role || "Member";
+      }
+
+      // Load inventory
+      const { data: inventories } = await supabase
+        .from("user_inventories")
+        .select("id, species, common_name, insect_type")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      const invContainer = document.getElementById("public-inventory");
+      if (!inventories || inventories.length === 0) {
+        invContainer.innerHTML = "<p>No species in this inventory yet.</p>";
+      } else {
+        let html = `
+          <table class="table table-bordered table-hover align-middle text-nowrap">
+            <thead class="table-light">
+              <tr>
+                <th>Species</th>
+                <th>Common Name</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        for (let i of inventories) {
+          html += `
+            <tr>
+              <td>
+                <a href="/tabs/inventory/view.species.html?id=${i.id}" class="text-decoration-none">
+                 <i> ${i.species}</i>
+                </a>
+              </td>
+              <td>${i.common_name || ""}</td>
+              <td>${i.insect_type || ""}</td>
+            </tr>
+          `;
+        }
+        html += "</tbody></table>";
+        invContainer.innerHTML = html;
+      }
+
+      // Load wishlist
+      const { data: wishlist } = await supabase
+        .from("user_wishlist")
+        .select("species, common_name, insect_type, date_added")
+        .eq("user_id", userId)
+        .order("date_added", { ascending: false });
+
+      const wlContainer = document.getElementById("public-wishlist");
+      if (!wishlist || wishlist.length === 0) {
+        wlContainer.innerHTML = "<p>No species in this wishlist yet.</p>";
+      } else {
+        let html = `
+          <table class="table table-bordered table-hover align-middle text-nowrap">
+            <thead class="table-light">
+              <tr>
+                <th>Species</th>
+                <th>Common Name</th>
+                <th>Type</th>
+                <th>Date Added</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        for (let w of wishlist) {
+          html += `
+            <tr>
+              <td><i>${w.species}</i></td>
+              <td>${w.common_name || ""}</td>
+              <td>${w.insect_type || ""}</td>
+              <td>${new Date(w.date_added).toLocaleDateString()}</td>
+            </tr>
+          `;
+        }
+        html += "</tbody></table>";
+        wlContainer.innerHTML = html;
+      }
+    })();
+  </script>
 </body>
 </html>

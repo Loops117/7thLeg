@@ -50,8 +50,12 @@ async function loadSpeciesView() {
       <section class="hero-section" style="background-image: url('${inv.cover_image}'); background-size: cover; background-position: center; position: relative; height: 300px;">
         <div class="overlay d-flex flex-column justify-content-center align-items-center text-white text-center" style="background: rgba(0,0,0,0.5); height: 100%;">
           <h1 class="display-4">${commonName || "Unnamed Species"}</h1>
-          <h3 class="fw-light"><i>${speciesName}</></h3>
-          <p class="mt-2">Owned by ${ownerName}</p>
+          <h3 class="fw-light"><i>${speciesName}</i></h3>
+          <p class="mt-2">
+            Owned by <a href="/profiles/index.html?id=${inv.user_id}" class="text-white text-decoration-underline">
+              ${ownerName}
+            </a>
+          </p>
         </div>
       </section>
     `;

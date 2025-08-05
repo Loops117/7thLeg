@@ -1,10 +1,8 @@
 console.log("✅ userprofile.js loaded");
 
 (async function() {
-  const pathParts = window.location.pathname.split("/").filter(Boolean);
-  // Expected path: /profiles/:userId/:fullName
-  const userId = pathParts[1];
-  const fullNameSlug = pathParts[2] || "";
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get("id");
 
   if (!userId) {
     document.body.innerHTML = "<div class='container py-5'><p class='text-danger'>❌ No user specified.</p></div>";
@@ -19,8 +17,8 @@ console.log("✅ userprofile.js loaded");
     .single();
 
   if (profileError || !profile) {
-    document.body.innerHTML = "<div class='container py-5'><p class='text-danger'>❌ User not found.</p></div>";
-    return;
+    document.getElementById("profile-header").innerHTML =
+      "<p class='text-danger'>❌ Failed to load profile.</p>";
   } else {
     document.getElementById("user-name").textContent = profile.full_name || "Unnamed User";
     document.getElementById("user-role").textContent = profile.role || "Member";

@@ -30,13 +30,7 @@ async function loadProfile() {
   const copyBtn = document.getElementById("copy-profile-link");
 
   if (btn && copyBtn && profile?.full_name) {
-    const slug = profile.full_name
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
-
-    const url = `${window.location.origin}/profiles/${user.id}/${slug}`;
+    const url = `${window.location.origin}/profiles/index.html?id=${user.id}`;
 
     btn.addEventListener("click", () => {
       window.location.href = url;
