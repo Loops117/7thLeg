@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +15,14 @@
     <div class="text-center mb-5">
       <h1 id="user-name">Loading profile...</h1>
       <p id="user-role" class="text-muted"></p>
+    </div>
+
+    <!-- ✅ Badges -->
+    <div id="user-badges" class="mb-5">
+      <h4>Badges</h4>
+      <div id="badge-list" class="d-flex gap-2 flex-wrap">
+        <p>Loading badges...</p>
+      </div>
     </div>
 
     <div class="row">
@@ -51,7 +60,6 @@
         return;
       }
 
-      // Load profile info
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("full_name, role")
@@ -66,7 +74,27 @@
         document.getElementById("user-role").textContent = profile.role || "Member";
       }
 
-      // Load inventory
+      // ✅ Load badges
+      const { data: badges, error: badgeError } = await supabase
+        .from("user_badges")
+        .select("badges(name, description, icon_url)")
+        .eq("user_id", userId);
+
+      const badgeContainer = document.getElementById("badge-list");
+      if (badgeError || !badges) {
+        badgeContainer.innerHTML = "<p class='text-danger'>Failed to load badges.</p>";
+      } else if (badges.length === 0) {
+        badgeContainer.innerHTML = "<p>No badges yet.</p>";
+      } else {
+        badgeContainer.innerHTML = badges.map(b => `
+          <div class="badge bg-success d-flex align-items-center p-2 shadow-sm" title="${b.badges.description || ''}">
+            ${b.badges.icon_url ? `<img src="${b.badges.icon_url}" alt="${b.badges.name}" style="height:20px; margin-right:6px;">` : ""}
+            <span>${b.badges.name}</span>
+          </div>
+        `).join("");
+      }
+
+      // ✅ Load inventory
       const { data: inventories } = await supabase
         .from("user_inventories")
         .select("id, species, common_name, insect_type")
@@ -93,7 +121,7 @@
             <tr>
               <td>
                 <a href="/tabs/inventory/view.species.html?id=${i.id}" class="text-decoration-none">
-                 <i> ${i.species}</i>
+                  <i>${i.species}</i>
                 </a>
               </td>
               <td>${i.common_name || ""}</td>
@@ -105,7 +133,7 @@
         invContainer.innerHTML = html;
       }
 
-      // Load wishlist
+      // ✅ Load wishlist
       const { data: wishlist } = await supabase
         .from("user_wishlist")
         .select("species, common_name, insect_type, date_added")
