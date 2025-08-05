@@ -89,7 +89,6 @@
       <!-- Tab Content -->
       <div class="tab-content dashboard-content">
         <div class="tab-pane fade show active" id="profile">Loading...</div>
-
         <div class="tab-pane fade" id="inventory">
           <div class="toolbar">
             <button class="btn btn-success btn-sm" onclick="openAddSpecies()">➕ Add Species</button>
@@ -99,7 +98,6 @@
           </div>
           <div id="inventory-table-container">Loading...</div>
         </div>
-
         <div class="tab-pane fade" id="wishlist">Loading...</div>
         <div class="tab-pane fade" id="myauctions">Loading...</div>
         <div class="tab-pane fade" id="mytrades">Loading...</div>
@@ -107,7 +105,6 @@
         <div class="tab-pane fade" id="orders">Loading...</div>
         <div class="tab-pane fade" id="products">Loading...</div>
         <div class="tab-pane fade" id="categories">Loading...</div>
-
         <!-- Hidden edit tab -->
         <div class="tab-pane fade" id="edit-species">Loading...</div>
       </div>
@@ -133,10 +130,10 @@
       orders: "tabs/orders.html",
       products: "tabs/products.html",
       categories: "tabs/categories.html",
-      "edit-species": "tabs/Inventory/edit.species.html"
+      "edit-species": "tabs/inventory/edit.species.html"
     };
 
-    // ✅ Loader with event dispatch
+    // Central loader with forced script re-execution
     window.loadTabContent = async function (tabId, filePath) {
       const container = document.getElementById(tabId);
       try {
@@ -144,33 +141,33 @@
         if (!response.ok) throw new Error("Failed to load tab content.");
         container.innerHTML = await response.text();
 
-        let jsFile;
-        if (tabId === "edit-species") {
-          jsFile = "tabs/Inventory/edit.species.js";
-        } else {
-          jsFile = `tabs/${tabId}.js`;
-        }
+        let jsFile = tabId === "edit-species"
+          ? "tabs/inventory/edit.species.js"
+          : `tabs/${tabId}.js`;
 
-        const res = await fetch(jsFile, { method: "HEAD" });
-        if (res.ok) {
-          await new Promise((resolve) => {
-            const script = document.createElement("script");
-            script.src = jsFile + "?v=" + Date.now();
-            script.onload = resolve;
-            script.onerror = resolve;
-            document.body.appendChild(script);
-          });
-        }
+        // Always reload with cache-busting
+        jsFile += `?v=${Date.now()}`;
 
-        // Fire custom event so listeners can be reattached
-        document.dispatchEvent(new Event("tabContentReloaded"));
+        const script = document.createElement("script");
+        script.src = jsFile;
+        script.onload = () => {
+          console.log(`📌 Reloaded script for ${tabId}`);
+          // Look for an init function like initInventory, initProducts, etc.
+          const fnName = "init" + tabId.charAt(0).toUpperCase() + tabId.slice(1);
+          if (typeof window[fnName] === "function") {
+            console.log(`📌 Running ${fnName}()`);
+            window[fnName]();
+          }
+        };
+        document.body.appendChild(script);
 
+        attachTabListeners();
       } catch (err) {
         container.innerHTML = `<p class="text-danger">${err.message}</p>`;
       }
     };
 
-    // ✅ Central handler
+    // Tab event handler
     async function handleTabShown(e) {
       const targetId = e.target.getAttribute('data-bs-target').substring(1);
       if (tabMap[targetId]) {
@@ -178,22 +175,16 @@
       }
     }
 
-    // ✅ Function to (re)attach listeners
     function attachTabListeners() {
       document.querySelectorAll('#dashboardTabs button[data-bs-toggle="pill"]').forEach(tabBtn => {
         tabBtn.removeEventListener('shown.bs.tab', handleTabShown);
         tabBtn.addEventListener('shown.bs.tab', handleTabShown);
       });
-      console.log("✅ Dashboard tab listeners attached");
+      console.log("✅ Dashboard tab listeners reattached");
     }
 
-    // Attach listeners initially
+    // Initial setup
     attachTabListeners();
-
-    // Reattach after content reloads
-    document.addEventListener("tabContentReloaded", attachTabListeners);
-
-    // Load default tab
     window.loadTabContent("profile", tabMap["profile"]);
 
     // Admin check

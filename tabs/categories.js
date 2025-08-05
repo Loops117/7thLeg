@@ -109,12 +109,8 @@ function initSortableCategories() {
   });
 }
 
-// Load once DOM + tab content is ready
-document.addEventListener("DOMContentLoaded", () => {
-  setTimeout(() => {
-    if (document.getElementById("categories-container")) {
-      console.log("📌 categories.js starting loadCategories()");
-      loadCategories();
-    }
-  }, 200);
-});
+// This is called by dashboard.html when the Categories tab is shown
+function initCategories() {
+  console.log("📌 initCategories() called");
+  loadCategories();
+}

@@ -1,1 +1,29 @@
-<div><h4>Wishlist</h4><div id='wishlist-container'>Loading wishlist...</div></div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">My Wishlist</h4>
+</div>
+
+<!-- Add New Row -->
+<form class="row g-2 mb-3" id="wishlist-add-form" onsubmit="return addWishlist(event)">
+  <div class="col-md-3">
+    <input type="text" id="wishlist-species" class="form-control" placeholder="Species Name" required>
+  </div>
+  <div class="col-md-3">
+    <input type="text" id="wishlist-common" class="form-control" placeholder="Common Name">
+  </div>
+  <div class="col-md-3">
+    <select id="wishlist-insect-type" class="form-select"></select>
+  </div>
+  <div class="col-md-3 d-grid">
+    <button type="submit" class="btn btn-success">Add to Wishlist</button>
+  </div>
+</form>
+
+<!-- ✅ Required container for table -->
+<div id="wishlist-table-container">
+  <p>Loading wishlist...</p>
+</div>
+
+<style>
+  .wishlist-row:hover { background-color: #f8f9fa; cursor: pointer; }
+  .wishlist-row.selected { background-color: #d1e7dd !important; }
+</style>
