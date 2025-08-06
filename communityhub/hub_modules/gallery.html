@@ -1,0 +1,27 @@
+<div class="container py-4">
+  <h2 class="mb-4 text-center">Community Gallery</h2>
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <input type="text" id="gallery-search" class="form-control"
+             placeholder="🔍 Search by species, common name, or user...">
+    </div>
+    <div class="col-md-6">
+      <select id="species-filter" class="form-select">
+        <option value="">All Types</option>
+      </select>
+    </div>
+  </div>
+  <div id="gallery-container" class="row g-3">
+    <p>Loading gallery...</p>
+  </div>
+</div>
+
+<style>
+  .gallery-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #f8f9fa;
+  }
+</style>

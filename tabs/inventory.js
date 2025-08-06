@@ -10,7 +10,7 @@
     await loadInventory();
   };
 
-  async function loadInventory() {
+  async function loadInventory(highlightIds = []) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       document.getElementById('inventory-table-container').innerHTML =
@@ -20,10 +20,9 @@
 
     const { data: inventories, error } = await supabase
       .from("user_inventories")
-      .select("id, species, common_name, insect_type, cover_image")
+      .select("*")  // 👈 fetch every column
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-
     const container = document.getElementById('inventory-table-container');
     if (error) {
       container.innerHTML = "<p class='text-danger'>Failed to load inventory.</p>";
@@ -61,9 +60,9 @@
         : `<img src="assets/images/logo.png" alt="Logo" style="height:30px; width:auto;">`;
 
       html += `
-        <tr class="inventory-row" data-inventory-id="${i.id}">
+        <tr class="inventory-row ${highlightIds.includes(i.id) ? "highlight-row" : ""}" id="row-${i.id}" data-inventory-id="${i.id}">
           <td>${imgTag}</td>
-          <td>${i.species}</td>
+          <td><i>${i.species}</i></td>
           <td>${i.common_name || ""}</td>
           <td>${i.insect_type || ""}</td>
           <td>
@@ -96,7 +95,7 @@
     });
   }
 
-  // Expose only what you need global
+  // Expose functions globally
   window.openViewSpecies = function (id) {
     window.location.href = `tabs/Inventory/view.species.html?id=${id}`;
   };
@@ -156,21 +155,125 @@
     alert("✅ Inventory copied to clipboard!");
   };
 
-  window.exportInventory = function () {
-    if (!inventoryData.length) return alert("No inventory to export.");
-    const headers = ["Species", "Common Name", "Type"];
-    const rows = inventoryData.map(i => [i.species, i.common_name || "", i.insect_type || ""]);
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+  window.exportInventory = async function () {
+    if (!inventoryData.length) {
+      return alert("No inventory to export.");
+    }
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const csv = Papa.unparse(inventoryData, {
+      quotes: true,
+      quoteChar: '"',
+      escapeChar: '"',
+      delimiter: ",",
+      header: true,
+      newline: "\r\n"
+    });
+
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "inventory_export.csv";
     link.click();
   };
 
+
+
   window.shareInventory = function () {
     alert("TODO: Share inventory via link");
+  };
+
+  // ✅ Bulk Import Support
+  window.downloadInventoryTemplate = function () {
+    const headers = [
+      "id", "species", "common_name", "insect_type", "date_obtained", "origin",
+      "climate", "humidity", "hydration", "adult_size", "breeding_season", "birth_type",
+      "brood_amount", "container_type", "substrate", "care_sheet", "notes",
+      "status", "diet", "cover_image", "source"
+    ];
+    const csvContent = headers.join(",") + "\\n";
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "inventory_template.csv";
+    link.click();
+  };
+
+  window.importInventory = function () {
+    const fileInput = document.getElementById("csvUpload");
+    const errorDiv = document.getElementById("import-errors");
+    errorDiv.innerHTML = "";
+
+    if (!fileInput.files.length) {
+      errorDiv.innerHTML = "<div class='alert alert-danger'>Please select a CSV file.</div>";
+      return;
+    }
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        errorDiv.innerHTML = "<div class='alert alert-danger'>You must be logged in to import.</div>";
+        return;
+      }
+
+      Papa.parse(fileInput.files[0], {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          let errors = [];
+          let updatedIds = [];
+
+          for (let [index, row] of results.data.entries()) {
+            const cleanedRow = Object.fromEntries(
+              Object.entries(row).map(([k, v]) => [k, v?.trim() || null])
+            );
+
+            if (!cleanedRow.species) {
+              errors.push(`Row ${index + 2} skipped: Missing species name.`);
+              continue;
+            }
+
+            try {
+              if (cleanedRow.id) {
+                const { error: updateError, count } = await supabase
+                  .from("user_inventories")
+                  .update(cleanedRow)
+                  .eq("id", cleanedRow.id)
+                  .eq("user_id", user.id);
+
+                if (!updateError && count > 0) {
+                  updatedIds.push(cleanedRow.id);
+                  continue;
+                }
+              }
+              cleanedRow.user_id = user.id;
+              const { data: inserted, error: insertError } = await supabase
+                .from("user_inventories")
+                .insert(cleanedRow)
+                .select();
+
+              if (!insertError && inserted?.length) {
+                updatedIds.push(inserted[0].id);
+              } else if (insertError) {
+                errors.push(`Row ${index + 2} insert failed: ${insertError.message}`);
+              }
+            } catch (err) {
+              errors.push(`Row ${index + 2} failed: ${err.message}`);
+            }
+          }
+
+          await loadInventory(updatedIds);
+
+          if (errors.length) {
+            errorDiv.innerHTML = `
+              <div class="alert alert-warning">
+                <strong>Import completed with ${errors.length} issue(s):</strong>
+                <ul>${errors.map(e => `<li>${e}</li>`).join("")}</ul>
+              </div>`;
+          } else {
+            errorDiv.innerHTML = "<div class='alert alert-success'>✅ Import completed successfully!</div>";
+          }
+        }
+      });
+    });
   };
 
 })(); // end IIFE

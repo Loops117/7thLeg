@@ -2,52 +2,130 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>User Dashboard - 7th Leg</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="assets/css/style.css" rel="stylesheet">
-</head>
-
-<body>
-  <div id="header"></div>
-
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="assets/css/style.css" rel="stylesheet" />
   <style>
-    .dashboard-layout {
-      display: flex;
-    }
-
-    .dashboard-tabs {
-      min-width: 200px;
-      background-color: #f8f9fa;
-      border-radius: 8px;
-      padding: 0;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .dashboard-tabs .nav-link {
-      border-radius: 0;
+    html,
+    body {
       margin: 0;
-      padding: 12px 16px;
-      color: #333;
-      text-align: left;
+      padding: 0;
     }
 
-    .dashboard-tabs .nav-link.active {
+    #header,
+    #footer {
+      width: 100%;
+
+    }
+
+    #header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      z-index: 3000;
+      background: #fff;
+    }
+
+    #footer {
+      position: relative;
+      z-index: 3200;
+      /* higher than header and sidebar */
+      background: #fff;
+      /* optional, ensures content under it is hidden */
+    }
+
+    body {
+      padding-top: 100px;
+    }
+
+    #sidebar-wrapper {
+      width: 240px;
+      background: #f8f9fa;
+      border-right: 1px solid #ddd;
+      transition: transform 0.3s ease;
+      z-index: 2000;
+    }
+
+    #sidebar-wrapper {
+      position: fixed;
+      top: 100px;
+      left: -240px;
+      height: calc(100% - 60px);
+    }
+
+    #sidebar-wrapper.open {
+      left: 0;
+    }
+
+    #sidebar-tab {
+      position: fixed;
+      top: 100px;
+      left: 0;
+      background: #198754;
+      color: #fff;
+      padding: 8px 12px;
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
+      cursor: pointer;
+      z-index: 3100;
+    }
+
+    #sidebar-wrapper.open+#sidebar-tab {
+      left: 240px;
+    }
+
+    @media (min-width: 768px) {
+      #sidebar-wrapper {
+        position: fixed;
+        top: 100px;
+        left: 0;
+        width: 240px;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        transform: none;
+        z-index: 2500;
+      }
+
+      #sidebar-tab {
+        display: none;
+      }
+
+      #dashboard-main {
+        margin-left: 240px;
+      }
+    }
+
+    #dashboard-sidebar {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    #dashboard-sidebar .nav-link {
+      color: #333;
+      border-radius: 6px;
+      margin-bottom: 0.4rem;
+      padding: 0.6rem 1rem;
+      font-weight: 500;
+    }
+
+    #dashboard-sidebar .nav-link:hover {
+      background-color: #e9ecef;
+      color: #000;
+    }
+
+    #dashboard-sidebar .nav-link.active {
       background-color: #198754;
       color: #fff;
-      font-weight: 600;
-      width: 100%;
     }
 
-    .dashboard-content {
-      flex-grow: 1;
-      padding-left: 2rem;
-    }
-
-    .highlight-row {
-      background-color: #fff3cd !important;
-      transition: background-color 1s ease;
+    #dashboard-content {
+      padding: 1rem;
+      min-height: calc(100vh - 120px);
     }
 
     .toolbar {
@@ -57,18 +135,23 @@
       margin-bottom: 1rem;
     }
   </style>
+</head>
 
-  <div class="container py-5">
-    <h2 class="text-center mb-4">Dashboard</h2>
-    <div class="dashboard-layout">
-      <!-- Sidebar Tabs -->
-      <ul class="nav flex-column nav-pills dashboard-tabs" id="dashboardTabs" role="tablist">
+<body>
+  <div id="header"></div>
+
+  <!-- Sidebar -->
+  <div id="sidebar-wrapper">
+    <nav id="dashboard-sidebar" class="p-3">
+      <ul class="nav flex-column nav-pills" id="dashboardTabs" role="tablist">
         <li class="nav-item"><button class="nav-link active w-100" data-bs-toggle="pill"
             data-bs-target="#profile">Profile</button></li>
         <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill"
             data-bs-target="#inventory">Inventory</button></li>
         <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill"
             data-bs-target="#wishlist">Wishlist</button></li>
+        <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#mygallery">My
+            Gallery</button></li>
         <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#myauctions">My
             Auctions</button></li>
         <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#mytrades">My
@@ -77,48 +160,52 @@
             Store</button></li>
         <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill"
             data-bs-target="#orders">Orders</button></li>
-        <!-- Admin Tabs -->
-        <li class="nav-item d-none" id="products-tab-item">
-          <button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#products">Products</button>
-        </li>
-        <li class="nav-item d-none" id="categories-tab-item">
-          <button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#categories">Categories</button>
-        </li>
+        <li class="nav-item d-none" id="products-tab-item"><button class="nav-link w-100" data-bs-toggle="pill"
+            data-bs-target="#products">Products</button></li>
+        <li class="nav-item d-none" id="categories-tab-item"><button class="nav-link w-100" data-bs-toggle="pill"
+            data-bs-target="#categories">Categories</button></li>
       </ul>
+    </nav>
+  </div>
 
-      <!-- Tab Content -->
-      <div class="tab-content dashboard-content">
-        <div class="tab-pane fade show active" id="profile">Loading...</div>
-        <div class="tab-pane fade" id="inventory">
-          <div class="toolbar">
-            <button class="btn btn-success btn-sm" onclick="openAddSpecies()">➕ Add Species</button>
-            <button class="btn btn-outline-primary btn-sm" onclick="copyInventory()">📋 Copy</button>
-            <button class="btn btn-outline-secondary btn-sm" onclick="exportInventory()">⬇ Export CSV</button>
-            <button class="btn btn-outline-info btn-sm" onclick="shareInventory()">🔗 Share</button>
-          </div>
-          <div id="inventory-table-container">Loading...</div>
+  <div id="sidebar-tab">☰</div>
+
+  <!-- Main Content -->
+  <div id="dashboard-main">
+    <div class="tab-content" id="dashboard-content">
+      <div class="tab-pane fade show active" id="profile">Loading...</div>
+      <div class="tab-pane fade" id="inventory">
+        <div class="toolbar">
+          <button class="btn btn-success btn-sm" onclick="openAddSpecies()">➕ Add Species</button>
+          <button class="btn btn-outline-primary btn-sm" onclick="copyInventory()">📋 Copy</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="exportInventory()">⬇ Export CSV</button>
+          <button class="btn btn-outline-info btn-sm" onclick="shareInventory()">🔗 Share</button>
         </div>
-        <div class="tab-pane fade" id="wishlist">Loading...</div>
-        <div class="tab-pane fade" id="myauctions">Loading...</div>
-        <div class="tab-pane fade" id="mytrades">Loading...</div>
-        <div class="tab-pane fade" id="mystore">Loading...</div>
-        <div class="tab-pane fade" id="orders">Loading...</div>
-        <div class="tab-pane fade" id="products">Loading...</div>
-        <div class="tab-pane fade" id="categories">Loading...</div>
-        <!-- Hidden edit tab -->
-        <div class="tab-pane fade" id="edit-species">Loading...</div>
+        <div id="inventory-table-container">Loading...</div>
       </div>
+      <div class="tab-pane fade" id="wishlist">Loading...</div>
+      <div class="tab-pane fade" id="mygallery">Loading...</div>
+      <div class="tab-pane fade" id="myauctions">Loading...</div>
+      <div class="tab-pane fade" id="mytrades">Loading...</div>
+      <div class="tab-pane fade" id="mystore">Loading...</div>
+      <div class="tab-pane fade" id="orders">Loading...</div>
+      <div class="tab-pane fade" id="products">Loading...</div>
+      <div class="tab-pane fade" id="categories">Loading...</div>
+      <div class="tab-pane fade" id="edit-species">Loading...</div>
     </div>
   </div>
 
   <div id="footer"></div>
 
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="assets/js/config.js"></script>
   <script src="assets/js/include.js"></script>
   <script src="assets/js/header-auth.js"></script>
+
   <script>
     const tabMap = {
       profile: "tabs/profile.html",
@@ -127,13 +214,13 @@
       myauctions: "tabs/myauctions.html",
       mytrades: "tabs/mytrades.html",
       mystore: "tabs/mystore.html",
+      gallery: "tabs/mygallery.html",
       orders: "tabs/orders.html",
       products: "tabs/products.html",
       categories: "tabs/categories.html",
       "edit-species": "tabs/inventory/edit.species.html"
     };
 
-    // Central loader with forced script re-execution
     window.loadTabContent = async function (tabId, filePath) {
       const container = document.getElementById(tabId);
       try {
@@ -145,14 +232,11 @@
           ? "tabs/inventory/edit.species.js"
           : `tabs/${tabId}.js`;
 
-        // Always reload with cache-busting
         jsFile += `?v=${Date.now()}`;
-
         const script = document.createElement("script");
         script.src = jsFile;
         script.onload = () => {
           console.log(`📌 Reloaded script for ${tabId}`);
-          // Look for an init function like initInventory, initProducts, etc.
           const fnName = "init" + tabId.charAt(0).toUpperCase() + tabId.slice(1);
           if (typeof window[fnName] === "function") {
             console.log(`📌 Running ${fnName}()`);
@@ -167,11 +251,10 @@
       }
     };
 
-    // Tab event handler
-    async function handleTabShown(e) {
+    function handleTabShown(e) {
       const targetId = e.target.getAttribute('data-bs-target').substring(1);
       if (tabMap[targetId]) {
-        await window.loadTabContent(targetId, tabMap[targetId]);
+        window.loadTabContent(targetId, tabMap[targetId]);
       }
     }
 
@@ -183,18 +266,17 @@
       console.log("✅ Dashboard tab listeners reattached");
     }
 
-    // Initial setup
     attachTabListeners();
     window.loadTabContent("profile", tabMap["profile"]);
 
-    // Admin check
     async function loadDashboard() {
       const { data: { user } } = await window.supabase.auth.getUser();
       if (!user) {
-        document.querySelector(".container").innerHTML =
+        document.querySelector("#dashboard-main").innerHTML =
           "<div class='alert alert-danger'>You must be logged in to view the dashboard.</div>";
         return;
       }
+
       const { data: profile } = await window.supabase
         .from("profiles")
         .select("role")
@@ -207,6 +289,23 @@
       }
     }
     loadDashboard();
+
+    // Mobile toggle
+    const sidebarTab = document.getElementById("sidebar-tab");
+    const sidebarWrapper = document.getElementById("sidebar-wrapper");
+    sidebarTab.addEventListener("click", () => {
+      sidebarWrapper.classList.toggle("open");
+    });
+    document.addEventListener("click", (e) => {
+      if (
+        sidebarWrapper.classList.contains("open") &&
+        !sidebarWrapper.contains(e.target) &&
+        !sidebarTab.contains(e.target)
+      ) {
+        sidebarWrapper.classList.remove("open");
+      }
+    });
   </script>
 </body>
+
 </html>

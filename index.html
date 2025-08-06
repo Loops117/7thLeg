@@ -56,30 +56,105 @@
     <div class="container py-5">
       <img src="assets/images/logo.png" alt="7th Leg Logo" class="mb-3" style="max-height:120px;">
       <h1>Welcome to 7th Leg</h1>
-      <p>Your hub for innovative monitoring systems and insect keeping supplies</p>
+      <p>Giving keepers a leg up — connect, share, and discover new species</p>
       <a href="#products" class="btn btn-success">Shop Now</a>
     </div>
   </div>
 
-  <!-- About Us Section -->
-  <div id="about" class="bg-light py-5">
+
+
+ <!-- Community Hub Section -->
+  <div id="community" class="py-5 bg-white">
     <div class="container text-center">
-      <h2>About Us</h2>
-      <p>
-        At 7th Leg, we’re redefining the insect-keeping hobby with innovation at every turn. From sleek, modern feeding
-        dishes to fully automated ecosystems, our products are designed to make caring for your critters easier, smarter,
-        and a whole lot more fun.
-      </p>
-      <p>
-        Whether you’re a seasoned keeper or just starting out, our specialty is creating tools and habitats that
-        transform everyday care into an effortless experience — so you can focus on enjoying the incredible world of
-        your insects.
-      </p>
+      <h2 class="mb-4">Community Hub</h2>
+      <div class="row g-4">
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h3 id="stat-species">0</h3>
+              <p class="mb-0">Species Tracked</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h3 id="stat-photos">0</h3>
+              <p class="mb-0">Photos Uploaded</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h3 id="stat-users">0</h3>
+              <p class="mb-0">Active Users</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h3 id="stat-badges">0</h3>
+              <p class="mb-0">Badges Earned</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <h4 class="mb-3">Coming Soon</h4>
+        <p class="text-muted">
+          Watch for <strong>New Trades</strong> and <strong>Auctions</strong> from our keepers — arriving soon!
+        </p>
+      </div>
+    </div>
+  </div>
+
+
+
+  <div style="height: 80px;"></div>
+  <!-- About Us Section -->
+  <div class="row justify-content-center">
+    <!-- Left Card: About Me -->
+    <div class="col-md-4 mx-md-4 mb-4">
+      <div class="card h-100 shadow-sm text-start p-2">
+        <div class="card-body py-2 fs-6">
+          <h4 class="text-center mb-3">About Us</h4>
+          <p>
+            What started as a simple shop for insect-keeping supplies has grown into something much bigger.
+            When I launched this site, my main goal was to share the products I use and trust. But as I looked
+            around the hobby, I noticed a problem: there wasn’t a central place for keepers to track their species
+            lists and easily share that information with others.
+          </p>
+          <p>
+            So I built one. Today, our site is more than just a storefront — it’s a place for invert keepers
+            to connect, learn, and share.
+          </p>
+        </div>
+      </div>
     </div>
 
+    <!-- Right Card: Features -->
+    <div class="col-md-4 mx-md-4 mb-4">
+      <div class="card h-100 shadow-sm text-start p-2">
+        <div class="card-body py-2 fs-5">
+          <h4 class="text-center mb-3">How This Works</h4>
+          <ul class="mb-0">
+            <li>Track your <strong>collections and wish lists</strong></li>
+            <li>Create and share a <strong>shareable species list</strong></li>
+            <li>Browse and add <strong>photos & care knowledge</strong></li>
+            <li>Join a network of passionate keepers</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
+
+
+  <!-- Products Section -->
   <div id="products" class="container py-5">
-    <h2 class="text-center mb-4">Our Products</h2>
+    <h2 class="text-center mb-4">7th Leg Products</h2>
     <div id="product-list" class="product-scroll">
       <p class="text-center">Loading products...</p>
     </div>
@@ -92,6 +167,40 @@
   <script src="assets/js/config.js"></script>
   <script src="assets/js/include.js"></script>
   <script src="assets/js/header-auth.js"></script>
+  <script>
+    async function loadCommunityStats() {
+      try {
+        // Example: count species
+        const { count: speciesCount } = await supabase
+          .from('user_inventories')
+          .select('id', { count: 'exact', head: true });
+        document.getElementById('stat-species').innerText = speciesCount || 0;
+
+        // Example: count photos
+        const { count: photoCount } = await supabase
+          .from('user_inventories')
+          .select('cover_image', { count: 'exact', head: true })
+          .not('cover_image', 'is', null);
+        document.getElementById('stat-photos').innerText = photoCount || 0;
+
+        // Example: count users
+        const { count: userCount } = await supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true });
+        document.getElementById('stat-users').innerText = userCount || 0;
+
+        // Example: count badges
+        const { count: badgeCount } = await supabase
+          .from('user_badges')
+          .select('id', { count: 'exact', head: true });
+        document.getElementById('stat-badges').innerText = badgeCount || 0;
+      } catch (err) {
+        console.error("Failed to load stats:", err);
+      }
+    }
+    loadCommunityStats();
+  </script>
+
   <script>
     async function loadProducts() {
       const { data: products, error } = await window.supabase

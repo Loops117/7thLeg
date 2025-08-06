@@ -1,0 +1,1 @@
+// JS logic for auctions_trades.html
