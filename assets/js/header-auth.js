@@ -25,7 +25,7 @@ async function renderNavUser() {
     } else {
       navUser.innerHTML = `
         <li class="nav-item">
-          <a class="nav-link" href="/login.html">Login</a>
+          <a class="nav-link" href="/login.html">Login / Signup</a>
         </li>
       `;
     }
