@@ -1,4 +1,4 @@
-<!-- Hub Home -->
+<!-- Home Module -->
 <div class="row">
   <!-- Left Column -->
   <div class="col-md-6 mb-4">
@@ -12,12 +12,21 @@
     </div>
 
     <!-- Recent Bulletins -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm h-100">
       <div class="card-body">
         <h5>Recent Bulletins</h5>
+        <form id="bulletin-form" class="mb-3">
+          <div class="input-group">
+            <input type="text" id="bulletin-input" class="form-control" placeholder="Write a new bulletin..."
+              maxlength="300" required>
+            <button class="btn btn-primary" type="submit">Post</button>
+          </div>
+        </form>
         <table class="table table-sm mb-0">
           <tbody id="bulletin-table">
-            <tr><td>Loading...</td></tr>
+            <tr>
+              <td>Loading...</td>
+            </tr>
           </tbody>
         </table>
       </div>
