@@ -1,6 +1,6 @@
 console.log("✅ userprofile.js loaded");
 
-(async function() {
+(async function () {
   const params = new URLSearchParams(window.location.search);
   const userId = params.get("id");
 
@@ -27,7 +27,7 @@ console.log("✅ userprofile.js loaded");
   // Load inventory
   const { data: inventories } = await supabase
     .from("user_inventories")
-    .select("species, common_name, insect_type")
+    .select("id, species, common_name, insect_type")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -48,13 +48,14 @@ console.log("✅ userprofile.js loaded");
     `;
     for (let i of inventories) {
       html += `
-        <tr>
-          <td>${i.species}</td>
-          <td>${i.common_name || ""}</td>
-          <td>${i.insect_type || ""}</td>
-        </tr>
-      `;
+    <tr>
+      <td><a href="/tabs/Inventory/view.species.html?id=${i.id}"><i>${i.species}</i></a></td>
+      <td>${i.common_name || ""}</td>
+      <td>${i.insect_type || ""}</td>
+    </tr>
+  `;
     }
+
     html += "</tbody></table>";
     invContainer.innerHTML = html;
   }

@@ -45,7 +45,7 @@ const supabase = window.supabase;
     // Load Bulletins
     const { data: bulletins, error: bulletinError } = await supabase
       .from("bulletins")
-      .select("message, created_at, profiles(full_name)")
+      .select("user_id, message, created_at, profiles(full_name)")
       .eq("type", "general")
       .order("created_at", { ascending: false })
       .limit(10);
@@ -54,34 +54,22 @@ const supabase = window.supabase;
     if (bulletinError || !bulletins?.length) {
       bulletinTable.innerHTML = "<tr><td colspan='3'>No recent bulletins.</td></tr>";
     } else {
-      bulletinTable.innerHTML = bulletins.map(b => `
-        <tr>
-          <td><strong>${b.profiles?.full_name || "Unknown"}</strong></td>
-          <td>${b.message}</td>
-          <td><small>${new Date(b.created_at).toLocaleString()}</small></td>
-        </tr>`).join("");
+      bulletinTable.innerHTML = bulletins.map(b => {
+        const isCurrentUser = b.user_id === userId;
+        const nameCell = isCurrentUser
+          ? `<strong>You</strong>`
+          : `<strong><a href="/communityhub/hub.html?module=profile&id=${b.user_id}">${b.profiles?.full_name || "Unknown"}</a></strong>`;
+        return `
+          <tr>
+            <td>${nameCell}</td>
+            <td>${b.message}</td>
+            <td><small>${new Date(b.created_at).toLocaleString()}</small></td>
+          </tr>`;
+      }).join("");
     }
 
-    // ✅ Dynamically wait for bulletin form and bind listener
-    const waitForElement = (selector, timeout = 2000) =>
-      new Promise((resolve, reject) => {
-        const el = document.querySelector(selector);
-        if (el) return resolve(el);
-        const observer = new MutationObserver(() => {
-          const el = document.querySelector(selector);
-          if (el) {
-            observer.disconnect();
-            resolve(el);
-          }
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-        setTimeout(() => {
-          observer.disconnect();
-          reject(new Error(`Element ${selector} not found`));
-        }, timeout);
-      });
-
-    const form = await waitForElement("#bulletin-form");
+    // Bind bulletin post
+    const form = document.querySelector("#bulletin-form");
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const input = document.getElementById("bulletin-input");
@@ -108,7 +96,7 @@ const supabase = window.supabase;
 
       input.value = "";
 
-      const name = document.getElementById("nav-user")?.textContent || "You";
+      const name = "You";
       const date = new Date(data.created_at).toLocaleString();
       const row = document.createElement("tr");
       row.innerHTML = `

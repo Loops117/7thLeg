@@ -1,0 +1,35 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">My Wishlist</h4>
+  <button class="btn btn-outline-secondary btn-sm" onclick="exportWishlist()">⬇ Export CSV</button>
+</div>
+
+<!-- Add New Row -->
+<form class="row g-2 mb-3" id="wishlist-add-form" onsubmit="return addWishlist(event)">
+  <div class="col-md-3">
+    <input type="text" id="wishlist-species" class="form-control" placeholder="Species Name" required>
+  </div>
+  <div class="col-md-3">
+    <input type="text" id="wishlist-common" class="form-control" placeholder="Common Name">
+  </div>
+  <div class="col-md-3">
+    <select id="wishlist-insect-type" class="form-select"></select>
+  </div>
+  <div class="col-md-3 d-grid">
+    <button type="submit" class="btn btn-success">Add to Wishlist</button>
+  </div>
+</form>
+
+<!-- Search -->
+<div class="mb-3">
+  <input type="text" id="wishlist-search" class="form-control" placeholder="🔍 Search wishlist...">
+</div>
+
+<!-- ✅ Required container for table -->
+<div id="wishlist-table-container">
+  <p>Loading wishlist...</p>
+</div>
+
+<style>
+  .wishlist-row:hover { background-color: #f8f9fa; cursor: pointer; }
+  .wishlist-row.selected { background-color: #d1e7dd !important; }
+</style>

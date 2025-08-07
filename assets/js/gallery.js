@@ -25,12 +25,9 @@ async function initGallery() {
     return;
   }
 
-  // ✅ Shuffle client-side
   inventories.sort(() => Math.random() - 0.5);
-
   allPhotos = inventories;
 
-  // Populate insect type filter
   const uniqueTypes = [...new Set(inventories.map(i => i.insect_type).filter(Boolean))].sort();
   const filterSelect = document.getElementById("species-filter");
   filterSelect.innerHTML = "<option value=''>All Types</option>" +
@@ -76,8 +73,8 @@ function renderGallery(data) {
           <h6 class="card-title"><i>${inv.species}</i></h6>
           <p class="card-text">${inv.common_name || ""}</p>
           <small class="text-muted">
-            Type: ${inv.insect_type || "Unknown"}<br>
-            By <a href="/profiles/index.html?user=${inv.profiles?.id || ""}">
+            Invert Type: ${inv.insect_type || "Unknown"}<br>
+            By <a href="userprofile.html?id=${inv.profiles?.id || ""}">
                  ${inv.profiles?.full_name || "Unknown"}
                </a>
           </small>

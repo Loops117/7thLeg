@@ -3,18 +3,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const links = document.querySelectorAll("#hub-sidebar .nav-link");
   const sidebarWrapper = document.getElementById("sidebar-wrapper");
 
-  // Inject header/footer, then init auth, then load Home
+  // Inject header/footer, then init auth, then load Home or URL param
   includeHTML(() => {
     const script = document.createElement("script");
     script.src = "/assets/js/header-auth.js?v=" + Date.now(); // cache-bust
     script.onload = () => {
       console.log("✅ header-auth.js loaded after header");
-      loadModule("home"); // Only load home after header is injected
+
+      // Read query params
+      const params = new URLSearchParams(window.location.search);
+      const module = params.get("module") || "home";
+      const userId = params.get("id");
+
+      // Load the module with optional user ID
+      loadModule(module, userId);
     };
     document.body.appendChild(script);
   });
 
-  async function loadModule(name) {
+  async function loadModule(name, userId = null, params = {}) {
     try {
       const res = await fetch(`hub_modules/${name}.html`);
       if (!res.ok) throw new Error(`Module ${name} not found`);
@@ -27,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`✅ ${name}.js loaded successfully`);
         if (mod.init) {
           console.log(`📌 Running init() for ${name}`);
-          mod.init();
+          mod.init(userId, params); // Pass user ID to init if needed
         }
       }).catch(err => {
         console.error(`❌ Failed to import ${name}.js:`, err);
@@ -39,6 +46,9 @@ document.addEventListener("DOMContentLoaded", () => {
       content.innerHTML = `<p class="text-danger">Failed to load ${name}.</p>`;
     }
   }
+
+  // ✅ Make loadModule globally available
+  window.loadModule = loadModule;
 
   // Sidebar link clicks
   links.forEach(link => {

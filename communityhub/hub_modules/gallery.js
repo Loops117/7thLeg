@@ -89,6 +89,7 @@ function renderGallery(data) {
   `).join("");
 }
 
-function openViewSpecies(id) {
-  window.location.href = `/tabs/Inventory/view.species.html?id=${id}`;
-}
+window.openViewSpecies = function(id) {
+  loadModule("species_modules/view.hubspecies", null, { id });
+};
+

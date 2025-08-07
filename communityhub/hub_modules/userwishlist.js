@@ -1,11 +1,11 @@
-(function () {
+
   console.log("✅ wishlist.js loaded");
 
   let insectTypes = [];
   let wishlistData = [];
 
-  window.initWishlist = async function () {
-    console.log("📌 initWishlist called");
+  export async function init () {
+    console.log("📌 initUserwishlist called");
     await loadInsectTypes();
     await loadWishlist();
   };
@@ -56,6 +56,18 @@
     }
 
     wishlistData = wishlist;
+
+    // Sort alphabetically by species, then common name
+    wishlistData.sort((a, b) => {
+      const speciesA = (a.species || "").toLowerCase();
+      const speciesB = (b.species || "").toLowerCase();
+      if (speciesA < speciesB) return -1;
+      if (speciesA > speciesB) return 1;
+      const commonA = (a.common_name || "").toLowerCase();
+      const commonB = (b.common_name || "").toLowerCase();
+      return commonA.localeCompare(commonB);
+    });
+
 
     let html = `
       <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
@@ -187,4 +199,4 @@
     alert("✅ Wishlist copied to clipboard!");
   };
 
-})();
+
