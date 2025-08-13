@@ -31,6 +31,7 @@ async function loadSpeciesView(speciesId) {
   }
 
   const commonName = inv.common_name || "";
+  const morphname = inv.morph_name || "";
   const speciesName = inv.species || "";
 
   document.title = `${commonName || speciesName} — ${ownerName}`;
@@ -48,8 +49,8 @@ async function loadSpeciesView(speciesId) {
     heroSection = `
       <section class="hero-section" style="background-image: url('${inv.cover_image}'); background-size: cover; background-position: center; position: relative; height: 300px;">
         <div class="overlay d-flex flex-column justify-content-center align-items-center text-white text-center" style="background: rgba(0,0,0,0.5); height: 100%;">
-          <h1 class="display-4">${commonName || "Unnamed Species"}</h1>
-          <h3 class="fw-light"><i>${speciesName}</i></h3>
+          <h1 class="fw-light"><i>${speciesName}</i></h1>
+          <h2 class="display-2">${morphname || ""} ${commonName || ""}</h2>
           <p class="mt-2">
             Owned by  <a href="#" onclick="loadModule('profile', '${inv.user_id}')" class="text-white text-decoration-underline">
             ${ownerName}
@@ -114,8 +115,9 @@ async function loadSpeciesView(speciesId) {
           </h2>
           <div id="idPanel" class="accordion-collapse collapse show">
             <div class="accordion-body">
-              <p><strong>Origin:</strong> ${inv.origin || "N/A"}</p>
-              <p><strong>Adult Size:</strong> ${inv.adult_size || "N/A"}</p>
+              <p><strong>Species:</strong> ${inv.species || "N/A"}</p>
+              <p><strong>Morph Name:</strong> ${inv.morph_name || "N/A"}</p>
+              <p><strong>Common Name:</strong> ${inv.common_name || "N/A"}</p>
             </div>
           </div>
         </div>
@@ -123,74 +125,16 @@ async function loadSpeciesView(speciesId) {
         <div class="accordion-item">
           <h2 class="accordion-header">
             <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#acquisitionPanel" aria-expanded="true">
-              Acquisition
+              Species Card
             </button>
           </h2>
           <div id="acquisitionPanel" class="accordion-collapse collapse show">
             <div class="accordion-body">
-              <p><strong>Date Obtained:</strong> ${inv.date_obtained || "N/A"}</p>
-              <p><strong>Source:</strong> ${inv.source || "N/A"}</p>
+              <p><strong>Coming Soon......</strong>
             </div>
           </div>
         </div>
 
-        <div class="accordion-item">
-          <h2 class="accordion-header">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#environmentPanel" aria-expanded="true">
-              Environmental Needs
-            </button>
-          </h2>
-          <div id="environmentPanel" class="accordion-collapse collapse show">
-            <div class="accordion-body">
-              <p><strong>Climate:</strong> ${inv.climate || "N/A"}</p>
-              <p><strong>Humidity:</strong> ${inv.humidity || "N/A"}</p>
-              <p><strong>Hydration:</strong> ${inv.hydration || "N/A"}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="accordion-item">
-          <h2 class="accordion-header">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#enclosurePanel" aria-expanded="true">
-              Enclosure & Habitat
-            </button>
-          </h2>
-          <div id="enclosurePanel" class="accordion-collapse collapse show">
-            <div class="accordion-body">
-              <p><strong>Container Type:</strong> ${inv.container_type || "N/A"}</p>
-              <p><strong>Ventilation:</strong> ${inv.ventilation || "N/A"}</p>
-              <p><strong>Substrate:</strong> ${inv.substrate || "N/A"}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="accordion-item">
-          <h2 class="accordion-header">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#feedingPanel" aria-expanded="true">
-              Feeding
-            </button>
-          </h2>
-          <div id="feedingPanel" class="accordion-collapse collapse show">
-            <div class="accordion-body">
-              <p><strong>Diet:</strong> ${inv.diet || "N/A"}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="accordion-item">
-          <h2 class="accordion-header">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#statusPanel" aria-expanded="true">
-              Status & Care
-            </button>
-          </h2>
-          <div id="statusPanel" class="accordion-collapse collapse show">
-            <div class="accordion-body">
-              <p><strong>Status:</strong> ${inv.status || "N/A"}</p>
-              <p><strong>Care Sheet:</strong> ${inv.care_sheet ? `<a href="${inv.care_sheet}" target="_blank">${inv.care_sheet}</a>` : "N/A"}</p>
-              <p><strong>Notes:</strong><br>${inv.notes ? inv.notes.replace(/\\n/g, "<br>") : "N/A"}</p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   `;

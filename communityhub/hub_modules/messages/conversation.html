@@ -1,0 +1,19 @@
+<!-- communityhub/hub_modules/messages/conversation.html -->
+<div class="container py-3" id="conversation-view">
+  <div class="d-flex align-items-center justify-content-between mb-2">
+    <h4 id="conv-title" class="mb-0">Conversation</h4>
+    <button class="btn btn-sm btn-outline-secondary" onclick="loadModule('messages/messages_inbox')">Back to Inbox</button>
+  </div>
+
+  <div id="conv-meta" class="small text-muted mb-2">Loading…</div>
+
+  <div id="conv-entities" class="mb-2"></div>
+
+  <div id="messages-box" class="border rounded p-2" style="height:55vh; overflow-y:auto; background:#fafafa;"></div>
+
+  <form id="composer" class="mt-2 d-flex gap-2">
+    <input id="composer-input" class="form-control" placeholder="Type a message…" autocomplete="off">
+    <button id="composer-send" class="btn btn-primary" type="submit">Send</button>
+  </form>
+</div>
+<script type="module" src="./conversation.js"></script>

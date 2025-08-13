@@ -1,19 +1,32 @@
-<!-- Auctions & Trades Module -->
-<div class="row">
-  <div class="col-md-6 mb-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5>Auctions</h5>
-        <p>View current auctions from the community.</p>
+
+<div class="container-fluid py-3">
+  <div class="row g-3 flex-column flex-md-row">
+
+    <!-- Auctions Column -->
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Auctions</h5>
+          <button id="create-auction-btn" class="btn btn-sm btn-primary">Create an Auction</button>
+        </div>
+        <div class="card-body overflow-auto" style="max-height: 75vh;">
+          <div id="auctions-section">Loading auctions...</div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="col-md-6 mb-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5>Trades</h5>
-        <p>Explore trade offers and connect with keepers.</p>
+
+    <!-- Trades Column -->
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Trades</h5>
+          <button id="post-trade-btn" class="btn btn-sm btn-primary">Post a Trade</button>
+        </div>
+        <div class="card-body overflow-auto" style="max-height: 75vh;">
+          <div id="trades-section">Loading trades...</div>
+        </div>
       </div>
     </div>
+
   </div>
 </div>

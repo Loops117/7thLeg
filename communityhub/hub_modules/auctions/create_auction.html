@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Auction</title>
+  <link rel="stylesheet" href="/assets/css/style.css?v=1754623752" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="./create_auction.js?v=1754623752"></script>
+</head>
+
+<body>
+  <div class="container py-4">
+    <h2 class="text-center mb-4">Create New Auction</h2>
+    <div class="row">
+      <!-- Credits Card -->
+      <div class="col-lg-4 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Credits</h5>
+            <p><strong>User:</strong> <span id="user-name">Loading...</span></p>
+            <p><strong>Credits Available:</strong> <span id="credits-available">0</span></p>
+            <p><strong>Selected Species:</strong></p>
+            <ul id="selected-species-list" class="mb-2 small"></ul>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="feature-auction" />
+              <label class="form-check-label" for="feature-auction">Feature Auction (1 extra credit)</label>
+            </div>
+            <p><strong>Credits Used:</strong> <span id="credits-used">1</span></p>
+            <p><strong>Credits Remaining:</strong> <span id="credits-remaining">0</span></p>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Auction Form -->
+      <div class="col-lg-8">
+        <form id="auction-form">
+          <div class="mb-3">
+            <label for="description" class="form-label">Auction Title</label>
+            <textarea id="description" class="form-control" rows="4" required></textarea>
+          </div>
+          <div class="mb-3">
+            <div class="mb-3">
+              <h5>Your Species</h5>
+              <div id="species-selection-wrapper"
+                style="resize: vertical; overflow: auto; height: 160px; min-height: 80px; max-height: 800px; border: 1px solid #ccc;">
+                <div id="species-selection-table" class="table-responsive"></div>
+              </div>
+            </div>
+            <label for="starting-bid" class="form-label">Starting Bid ($)</label>
+            <input type="number" class="form-control" id="starting-bid" name="starting_bid" min="0.01" step="0.01"
+              required>
+          </div>
+
+          <div class="mb-3">
+            <label for="reserve-price" class="form-label">Reserve Price ($)</label>
+            <input type="number" class="form-control" id="reserve-price" name="reserve_price" min="0" step="0.01">
+          </div>
+
+          <div class="mb-3">
+            <label for="bid-increments" class="form-label">Bid Increments ($)</label>
+            <input type="number" class="form-control" id="bid-increments" name="increments" min="0.01" step="0.01"
+              value="1.00" required>
+          </div>
+          <div class="mb-3">
+            <label for="end-date" class="form-label">Auction End Date & Time</label>
+            <input type="datetime-local" class="form-control" id="end-date" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Payment Methods Accepted</label><br />
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="paypal" value="PayPal" />
+              <label class="form-check-label" for="paypal">PayPal</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="venmo" value="Venmo" />
+              <label class="form-check-label" for="venmo">Venmo</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="cashapp" value="CashApp" />
+              <label class="form-check-label" for="cashapp">CashApp</label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="shipping-notes" class="form-label">Shipping Notes</label>
+            <textarea id="shipping-notes" class="form-control" rows="3"></textarea>
+          </div>
+          <button type="button" id="open-tos" class="btn btn-success w-100">Create Auction</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOS Popup Modal -->
+  <div id="auction-confirm-popup" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirm Auction</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="auction-summary-text">Loading summary...</p>
+          <div class="form-check mt-3">
+            <input type="checkbox" class="form-check-input" id="tos-agree" />
+            <label class="form-check-label" for="tos-agree">I agree to the <a href="/terms.html" target="_blank">Terms
+                of Service</a></label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="edit-auction">Back</button>
+          <button type="button" class="btn btn-primary" id="confirm-auction" disabled>Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -42,8 +42,8 @@ async function loadInventory(highlightIds = []) {
     if (speciesA < speciesB) return -1;
     if (speciesA > speciesB) return 1;
 
-    const commonA = (a.common_name || "").toLowerCase();
-    const commonB = (b.common_name || "").toLowerCase();
+    const commonA = (a.morph_name || "").toLowerCase();
+    const commonB = (b.morph_name || "").toLowerCase();
     return commonA.localeCompare(commonB);
   });
 
@@ -56,11 +56,11 @@ async function loadInventory(highlightIds = []) {
       <table id="inventory-table" class="table table-bordered table-hover align-middle text-nowrap">
         <thead class="table-light sticky-top">
           <tr>
-            <th style="width:50px;">Image</th>
+            <th style="width:20px;">Actions</th>
             <th>Species</th>
-            <th>Common Name</th>
+            <th>Morph</th>
             <th>Type</th>
-            <th style="width:260px;">Actions</th>
+            <th style="width:50px;">Image</th>
           </tr>
         </thead>
         <tbody>
@@ -73,15 +73,15 @@ async function loadInventory(highlightIds = []) {
 
     html += `
       <tr class="inventory-row ${highlightIds.includes(i.id) ? "highlight-row" : ""}" id="row-${i.id}" data-inventory-id="${i.id}">
-        <td>${imgTag}</td>
-        <td><i>${i.species}</i></td>
-        <td>${i.common_name || ""}</td>
-        <td>${i.insect_type || ""}</td>
         <td>
           <button class="btn btn-sm btn-info me-1" onclick="openViewSpecies('${i.id}')">View</button>
           <button class="btn btn-sm btn-primary me-1" onclick="openEditSpecies('${i.id}')">Edit</button>
           <button class="btn btn-sm btn-danger" onclick="deleteSpecies('${i.id}', '${i.species}')">Delete</button>
         </td>
+        <td><i>${i.species}</i></td>
+        <td><i>${i.morph_name}</i></td>
+        <td>${i.insect_type || ""}</td>
+        <td>${imgTag}</td>
       </tr>
     `;
   }
@@ -105,14 +105,14 @@ async function loadInventory(highlightIds = []) {
   });
 }
 
-window.openViewSpecies = function(id) {
+window.openViewSpecies = function (id) {
   loadModule('species_modules/view.hubspecies', null, { id });
 };
 
-window.openEditSpecies = function(id) {
+window.openEditSpecies = function (id) {
   loadModule('species_modules/edit.hubspecies', null, { id });
 };
 
-window.openAddSpecies = function() {
+window.openAddSpecies = function () {
   openEditSpecies(null);
 };

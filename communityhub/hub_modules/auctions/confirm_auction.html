@@ -1,0 +1,27 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Auction</title>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+  <script type="module" src="./confirm_auction.js"></script>
+</head>
+<body>
+  <div class="container py-4">
+    <h2 class="text-center mb-4">Review & Confirm Auction</h2>
+    <div id="auction-summary" class="mb-4"></div>
+    <div class="form-check mb-3">
+      <input class="form-check-input" type="checkbox" id="tos-agree" />
+      <label class="form-check-label" for="tos-agree">
+        I agree to the <a href="/terms.html" target="_blank">Terms of Service</a>
+      </label>
+    </div>
+    <div class="d-flex justify-content-between">
+      <button class="btn btn-secondary" id="back-button">Back</button>
+      <button class="btn btn-primary" id="confirm-button" disabled>Confirm Auction</button>
+    </div>
+  </div>
+</body>
+</html>

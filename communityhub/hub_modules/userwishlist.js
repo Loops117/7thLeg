@@ -74,11 +74,11 @@
         <table id="wishlist-table" class="table table-bordered table-hover align-middle text-nowrap">
           <thead class="table-light sticky-top">
             <tr>
+              <th style="width:20px;">Actions</th>
               <th>Species</th>
-              <th>Common Name</th>
+              <th>Morph Name</th>
               <th>Type</th>
               <th>Date Added</th>
-              <th style="width:180px;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -87,6 +87,10 @@
     for (let w of wishlist) {
       html += `
         <tr class="wishlist-row" data-id="${w.id}">
+                  <td>
+            <button class="btn btn-sm btn-primary me-1" onclick="updateWishlist('${w.id}')">Update</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteWishlist('${w.id}')">Delete</button>
+          </td>
           <td><input type="text" class="form-control form-control-sm" id="species-${w.id}" value="${w.species || ""}"></td>
           <td><input type="text" class="form-control form-control-sm" id="common-${w.id}" value="${w.common_name || ""}"></td>
           <td>
@@ -98,10 +102,6 @@
             </select>
           </td>
           <td>${new Date(w.date_added).toLocaleDateString()}</td>
-          <td>
-            <button class="btn btn-sm btn-primary me-1" onclick="updateWishlist('${w.id}')">Update</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteWishlist('${w.id}')">Delete</button>
-          </td>
         </tr>
       `;
     }

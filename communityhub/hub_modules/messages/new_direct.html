@@ -1,0 +1,61 @@
+<!-- communityhub/hub_modules/messages/new_direct.html -->
+<div class="container py-3" id="new-direct">
+  <h3 class="mb-3">New Conversation</h3>
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-8">
+          <label class="form-label">Search users</label>
+          <input id="user-search" class="form-control" placeholder="Type a name…">
+        </div>
+        <div class="col-12 col-md-4 text-md-end">
+          <small class="text-muted d-block mb-1"><span id="sel-count">0</span> selected</small>
+          <button id="clear-selection" class="btn btn-sm btn-outline-secondary">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive mb-3" style="max-height: 50vh; overflow-y: auto;">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light sticky-top">
+        <tr>
+          <th style="width:48px;"></th>
+          <th>Name</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody id="results-body">
+        <tr><td colspan="3" class="text-muted p-3">Start typing to search…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="group-options" class="card shadow-sm mb-3" style="display:none;">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Group title (optional)</label>
+          <input id="group-title" class="form-control" placeholder="Give your group a title">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <label class="form-label">First message (optional)</label>
+      <textarea id="first-message" class="form-control" rows="3" placeholder="Say hi…"></textarea>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button id="start-conversation" class="btn btn-primary">Start Conversation</button>
+    <button class="btn btn-outline-secondary" onclick="loadModule('messages/messages_inbox')">Back to Inbox</button>
+  </div>
+
+  <div id="nd-feedback" class="mt-2 small"></div>
+</div>
+
+<script type="module" src="./new_direct.js"></script>

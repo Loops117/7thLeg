@@ -1,18 +1,15 @@
 (function () {
-  console.log("✅ edit.species.js loaded");
+  console.log("✅ edit.hubspecies.js loaded");
 
   let editId = null;
   let originalCover = null;
 
   // Load the form with data (edit or add)
   window.loadEditSpecies = async function (id) {
-    editId = id;
-    document.getElementById("form-title").textContent = id ? "Edit Species" : "Add Species";
+    editId = id || null;
+    document.getElementById("form-title").textContent = editId ? "Edit Species" : "Add Species";
 
-    if (!id) {
-      document.getElementById("date_obtained").value = new Date().toISOString().split("T")[0];
-    }
-
+    // helper to load dropdowns (only invert type now)
     async function loadDropdown(table, selectEl) {
       const { data, error } = await supabase.from(table).select("*").order("sort_order", { ascending: true });
       if (error) { console.error(table, error); return; }
@@ -21,14 +18,9 @@
     }
 
     await loadDropdown("insect_types", document.getElementById("insect_type"));
-    await loadDropdown("climate_types", document.getElementById("climate"));
-    await loadDropdown("humidity_levels", document.getElementById("humidity"));
-    await loadDropdown("hydration_methods", document.getElementById("hydration"));
-    await loadDropdown("diet_presets", document.getElementById("diet"));
-    await loadDropdown("status_options", document.getElementById("status_select"));
 
-    if (id) {
-      const { data, error } = await supabase.from("user_inventories").select("*").eq("id", id).single();
+    if (editId) {
+      const { data, error } = await supabase.from("user_inventories").select("*").eq("id", editId).single();
       if (error || !data) {
         document.getElementById("form-message").innerHTML =
           `<div class="alert alert-danger py-2">❌ Failed to load species.</div>`;
@@ -36,17 +28,11 @@
       }
 
       document.getElementById("species").value = data.species || "";
-      document.getElementById("common_name").value = data.common_name || "";
+      document.getElementById("morph_name").value = data.morph_name || "";
       document.getElementById("insect_type").value = data.insect_type || "";
-      document.getElementById("date_obtained").value = data.date_obtained || new Date().toISOString().split("T")[0];
       document.getElementById("source").value = data.source || "";
-      document.getElementById("climate").value = data.climate || "";
-      document.getElementById("humidity").value = data.humidity || "";
-      document.getElementById("hydration").value = data.hydration || "";
-      document.getElementById("diet").value = data.diet || "";
-      document.getElementById("status_select").value = data.status || "";
-      document.getElementById("care_sheet").value = data.care_sheet || "";
-      document.getElementById("notes").value = data.notes || "";
+      document.getElementById("price").value = data.price ?? "";
+      document.getElementById("acquisition_notes").value = data.notes || "";
 
       if (data.cover_image) {
         originalCover = data.cover_image;
@@ -68,18 +54,16 @@
   };
 
   // ✅ Back button: ensure Inventory is shown and reloaded
-  
-window.cancelEdit = async function () {
-  console.log("📌 Back pressed — reloading My Species in Hub");
-  setTimeout(() => {
-    if (typeof window.loadModule === "function") {
-      loadModule("userspecies");
-    } else {
-      console.error("❌ loadModule is not defined.");
-    }
-  }, 100);
-};
-
+  window.cancelEdit = async function () {
+    console.log("📌 Back pressed — reloading My Species in Hub");
+    setTimeout(() => {
+      if (typeof window.loadModule === "function") {
+        loadModule("userspecies");
+      } else {
+        console.error("❌ loadModule is not defined.");
+      }
+    }, 100);
+  };
 
   // Handle form submit
   document.addEventListener("submit", async (e) => {
@@ -93,13 +77,22 @@ window.cancelEdit = async function () {
       return;
     }
 
+    // Required fields
+    const species = document.getElementById("species").value.trim();
+    const invertType = document.getElementById("insect_type").value.trim();
+    if (!species || !invertType) {
+      document.getElementById("form-message").innerHTML =
+        `<div class="alert alert-danger py-2">❌ Species and Invert Type are required.</div>`;
+      return;
+    }
+
     let coverImageUrl = originalCover;
     const coverFile = document.getElementById("cover_image_file").files[0];
     const removeCover = document.getElementById("remove_cover")?.checked;
 
     if (coverFile) {
       const timestamp = Date.now();
-      const cleanSpecies = document.getElementById("species").value.replace(/\s+/g, '-').toLowerCase();
+      const cleanSpecies = species.replace(/\s+/g, '-').toLowerCase();
       const filename = `${user.id}/${timestamp}-${cleanSpecies}.jpg`;
 
       const { error: uploadError } = await supabase.storage
@@ -129,10 +122,7 @@ window.cancelEdit = async function () {
       for (const file of galleryFiles) {
         const timestamp = Date.now();
         const cleanName = file.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9.\-_]/g, "");
-        const cleanSpecies = document.getElementById("species").value
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9.\-_]/g, "");
+        const cleanSpecies = species.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9.\-_]/g, "");
         const filename = `${user.id}/${editId || 'new'}/${timestamp}-${cleanSpecies}-${cleanName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -154,21 +144,15 @@ window.cancelEdit = async function () {
     }
 
     const entry = {
-      user_id: user.id,
-      species: document.getElementById("species").value,
-      common_name: document.getElementById("common_name").value,
-      insect_type: document.getElementById("insect_type").value,
-      cover_image: coverImageUrl,
-      date_obtained: document.getElementById("date_obtained").value,
-      source: document.getElementById("source").value,
-      climate: document.getElementById("climate").value,
-      humidity: document.getElementById("humidity").value,
-      hydration: document.getElementById("hydration").value,
-      diet: document.getElementById("diet").value,
-      status: document.getElementById("status_select").value,
-      care_sheet: document.getElementById("care_sheet").value,
-      notes: document.getElementById("notes").value,
-      gallery_images: galleryImageUrls,
+      user_id: user.id,                  // Required (from auth)
+      species: species,                  // Required
+      morph_name: document.getElementById("morph_name").value || null, // Optional
+      insect_type: invertType,           // Required
+      source: document.getElementById("source").value || null,         // Optional
+      price: document.getElementById("price").value || null,           // Optional
+      notes: document.getElementById("acquisition_notes").value || null, // Optional (stored in notes)
+      cover_image: coverImageUrl,        // Optional
+      gallery_images: galleryImageUrls,  // Optional
       updated_at: new Date().toISOString()
     };
 
@@ -196,4 +180,3 @@ export async function init(userId, params = {}) {
     window.loadEditSpecies(params.id || null);
   }
 }
-

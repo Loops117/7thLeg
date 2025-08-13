@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auction</title>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+
+<body>
+  <div id="header"></div>
+  <div class="container py-4">
+    <div class="card">
+      <div class="row g-0">
+        <div class="col-md-4">
+          <div style="width:100%; aspect-ratio: 1; overflow:hidden;">
+            <img id="auction-image" src="/assets/images/logo.png" alt="Auction Image"
+              style="width:100%; height:100%; object-fit:cover;">
+          </div>
+
+          <div id="species-gallery" class="d-flex flex-wrap gap-2 mt-3"></div>
+
+          <style>
+            .gallery-thumb {
+              width: 80px;
+              height: 80px;
+              object-fit: cover;
+              border-radius: 6px;
+              border: 1px solid #ccc;
+            }
+          </style>
+        </div>
+
+        <div class="col-md-8">
+          <div class="card-body">
+            <h3 class="card-title">
+              <p id="auction-desc"></p>
+            </h3>
+            <p id="auction-owner"><strong>By:</strong> Loading...</p>
+
+            <table class="table table-sm mt-3">
+              <thead>
+                <tr>
+                  <th>Qty</th>
+                  <th>Species</th><th>Type</th>
+                </tr>
+              </thead>
+              <tbody id="auction-species-list"></tbody>
+            </table>
+
+            <!-- Auction Info: Stacked Layout -->
+            <div class="auction-meta mb-3">
+              <p><strong>Current Bid: $</strong> <span id="auction-bid"></span></p>
+              <p><strong>Reserve Price:</strong> <span id="auction-reserve"></span></p>
+              <p><strong>Bid Increments:</strong> <span id="auction-increments"></span></p>
+              <p><strong>Time Remaining:</strong> <span id="auction-remaining"></span></p>
+              <p><strong>Ends:</strong> <span id="auction-ends"></span></p>
+            </div>
+
+
+            <div id="auction-bids" class="mb-3"></div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+              <span class="input-group-text">$</span>
+              <input type="number" id="manual-bid" class="form-control" placeholder="Enter your bid"
+                style="max-width: 200px;" />
+              <button id="place-manual-bid" class="btn btn-primary">Place Manual Bid</button>
+              <button id="place-quick-bid" class="btn btn-success">Quick Bid</button>
+              <button id="cancel-my-bid" class="btn btn-warning" style="display:none;">Cancel My Bid</button>
+              <button id="cancel-auction" class="btn btn-danger ms-auto" style="display:none;">Cancel Auction</button>
+            </div>
+            <div id="bid-message" class="text-danger small mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./auction_card.js"></script>
+  <script>
+    window.openViewSpecies = function (id) {
+      loadModule("species_modules/view.hubspecies", null, { id });
+    };
+  </script>
+</body>
+
+</html>

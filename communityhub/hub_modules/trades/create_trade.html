@@ -1,0 +1,55 @@
+<!-- create_trade.html -->
+<div class="container py-4">
+  <h2 class="text-center mb-4">Create Trade</h2>
+  <form id="trade-form">
+    <div class="mb-3">
+      <label class="form-label">Title</label>
+      <input type="text" class="form-control" id="title" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Trade Type</label>
+      <select class="form-select" id="trade_type" required>
+        <option value="have">I Have</option>
+        <option value="want">I Want</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Species Willing to Trade</label>
+      <div style="max-height: 300px; overflow-y: auto;">
+  <table class="table table-sm table-bordered mb-0">
+    <thead>
+      <tr>
+        <th>Select</th>
+        <th>Species Name</th>
+        <th>Common Name</th>
+        <th>Type</th>
+      </tr>
+    </thead>
+    <tbody id="species-list"></tbody>
+  </table>
+</div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Distance Willing to Travel (miles)</label>
+      <input type="number" class="form-control" id="distance">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Shipping Option</label>
+      <select class="form-select" id="shipping_option" required>
+        <option value="local">Local Only</option>
+        <option value="ship">Shipping Only</option>
+        <option value="both">Both</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Description</label>
+      <textarea class="form-control" id="description" rows="4"></textarea>
+    </div>
+    <div class="form-check mb-3">
+      <input class="form-check-input" type="checkbox" id="tos_agreement" required>
+      <label class="form-check-label">I agree to the Terms of Service</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Post Trade</button>
+    <div id="form-message" class="text-danger mt-2 small"></div>
+  </form>
+</div>

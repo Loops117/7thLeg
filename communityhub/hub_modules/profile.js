@@ -102,7 +102,7 @@ const supabase = window.supabase;
     // Inventory
     const { data: inventory } = await supabase
       .from("user_inventories")
-      .select("id, species, common_name, cover_image, insect_type")
+      .select("id, species, common_name, morph_name, cover_image, insect_type")
       .eq("user_id", uid);
 
     if (inventory?.length) {
@@ -114,7 +114,8 @@ const supabase = window.supabase;
           <div>
             <a href="#" onclick="loadModule('species_modules/view.hubspecies', null, { id: '${i.id}' })">
               <i>${i.species}</i>
-            </a>${i.common_name ? ` – ${i.common_name}` : ""}
+            ${i.common_name ? ` – ${i.common_name}` : ""}
+            </a>${i.morph_name ? ` – ${i.morph_name}` : ""}
             <div class="text-muted small">${i.insect_type || ""}</div>
           </div>
         </div>`).join("");
