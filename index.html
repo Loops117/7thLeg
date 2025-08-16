@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,9 +16,13 @@
 
   <style>
     /* Ensure header/footer placeholders reserve space smoothly */
-    #header, #footer { min-height: 1px; }
+    #header,
+    #footer {
+      min-height: 1px;
+    }
   </style>
 </head>
+
 <body class="bg-light">
   <div id="header" data-include="/communityhub/layout/header.html"></div>
 
@@ -28,7 +33,8 @@
         <div class="col-md-6">
           <span class="badge badge-soft rounded-pill mb-3">Giving keepers a leg up</span>
           <h1 class="display-5 fw-bold mb-3">Track, trade, and discover your next favorite species</h1>
-          <p class="lead text-white-50 mb-4">A home for invert keepers: shared species lists, photos, stores, and expos — all in one place.</p>
+          <p class="lead text-white-50 mb-4">A home for invert keepers: shared species lists, photos, stores, and expos
+            — all in one place.</p>
           <div class="d-flex flex-wrap gap-2">
             <a href="/communityhub/hub.html" class="btn btn-success btn-lg">
               <i class="bi bi-compass"></i> Enter the Hub
@@ -46,7 +52,8 @@
         <div class="col-md-6">
           <div class="ratio ratio-16x9 rounded-4 glass overflow-hidden shadow-lg">
             <video autoplay muted loop playsinline class="w-100 h-100">
-              <source src="https://ugdszfbhvpqomozthuoy.supabase.co/storage/v1/object/public/videos/background1.mp4" type="video/mp4">
+              <source src="https://ugdszfbhvpqomozthuoy.supabase.co/storage/v1/object/public/videos/background1.mp4"
+                type="video/mp4">
             </video>
           </div>
         </div>
@@ -149,14 +156,66 @@
     </div>
   </div>
 
+
+  <!-- ABOUT -->
+ <div class="container pb-3 pb-md-4">
+    <div class="row g-4">
+      <div class="col-md-6">
+        <div class="p-4 h-100 bg-light rounded shadow-sm">
+          <h4 class="mb-3">The Startup</h4>
+          <p><strong>7th Leg</strong> began as a small shop for insect-keeping supplies but quickly evolved into the
+            <strong>first peer-driven social platform for invert enthusiasts</strong>. We created a central, trusted
+            space
+            where keepers can track collections, connect, exchange knowledge, and join a transparent marketplace.
+          </p>
+          <p>Built on <strong>community accountability</strong>, 7th Leg uses peer reviews, badges, and store/buyer
+            ratings to ensure trust and reliability across the platform.</p>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="p-4 h-100 bg-light rounded shadow-sm">
+          <h4 class="mb-4">How It Works</h4>
+          <div class="row g-4">
+            <div class="col-6">
+              <h6 class="fw-bold">📊 Track & Showcase</h6>
+              <p class="small mb-0">Collections, breeding projects, and wish lists</p>
+            </div>
+            <div class="col-6">
+              <h6 class="fw-bold">📸 Share Knowledge</h6>
+              <p class="small mb-0">Photos, care guides, and identification help</p>
+            </div>
+            <div class="col-6">
+              <h6 class="fw-bold">⭐ Earn Trust</h6>
+              <p class="small mb-0">Reviews, badges, and user ratings</p>
+            </div>
+            <div class="col-6">
+              <h6 class="fw-bold">🌍 Discover & Connect</h6>
+              <p class="small mb-0">Expos, vendors, and local hobbyists</p>
+            </div>
+            <div class="col-6">
+              <h6 class="fw-bold">💱 Buy, Sell, Trade</h6>
+              <p class="small mb-0">Open market with sales, auctions, and trades</p>
+            </div>
+            <div class="col-6">
+              <h6 class="fw-bold">🆘 Get Help Fast</h6>
+              <p class="small mb-0">Community-driven ID and care desk for quick answers</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- FEATURES -->
-  <div class="container py-4 py-md-5">
+  <div class="container pt-0 pt-md-1 pb-4">
     <div class="row g-4">
       <div class="col-md-4">
         <div class="card h-100 shadow-sm">
           <div class="card-body">
-            <div class="mb-2"><i class="bi bi-clipboard-check me-2"></i><span class="fw-semibold">Species Lists</span></div>
-            <p class="mb-0 text-muted">Track your collection & wish list, and share a public profile for easy trades.</p>
+            <div class="mb-2"><i class="bi bi-clipboard-check me-2"></i><span class="fw-semibold">Species Lists</span>
+            </div>
+            <p class="mb-0 text-muted">Track your collection & wish list, and share a public profile for easy trades.
+            </p>
           </div>
         </div>
       </div>
@@ -171,7 +230,8 @@
       <div class="col-md-4">
         <div class="card h-100 shadow-sm">
           <div class="card-body">
-            <div class="mb-2"><i class="bi bi-calendar-event me-2"></i><span class="fw-semibold">Expo Tracker</span></div>
+            <div class="mb-2"><i class="bi bi-calendar-event me-2"></i><span class="fw-semibold">Expo Tracker</span>
+            </div>
             <p class="mb-0 text-muted">Find expos near you and see which vendors will be there.</p>
           </div>
         </div>
@@ -179,43 +239,10 @@
     </div>
   </div>
 
-  <!-- MARKET PREVIEW -->
-  <div class="container pb-5">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <h4 class="mb-0">From the Market</h4>
-      <a href="/communityhub/hub.html#market" class="btn btn-sm btn-outline-secondary">Open Market</a>
-    </div>
-    <div id="market-list" class="product-scroll"></div>
-  </div>
 
-  <!-- ABOUT -->
-  <div class="container pb-5">
-    <div class="row g-4">
-      <div class="col-md-6">
-        <div class="card h-100 shadow-sm p-3">
-          <div class="card-body">
-            <h4 class="mb-3">About Us</h4>
-            <p>What started as a simple shop for insect-keeping supplies has grown into something much bigger. We noticed there wasn’t a central place for keepers to track species and connect. So we built one.</p>
-            <p>Today, 7th Leg is more than a storefront — it’s a place for invert keepers to connect, learn, and share.</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card h-100 shadow-sm p-3">
-          <div class="card-body">
-            <h4 class="mb-3">How It Works</h4>
-            <ul class="mb-0">
-              <li>Track your <strong>collections and wish lists</strong></li>
-              <li>Create and share a <strong>public species list</strong></li>
-              <li>Browse <strong>photos</strong> & care knowledge</li>
-              <li>Find <strong>expos</strong> and vendors near you</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
+
+  </div>
   <div id="footer" data-include="/communityhub/layout/footer.html"></div>
 
   <!-- JS -->
@@ -226,4 +253,5 @@
   <script src="assets/js/header-auth.js"></script>
   <script src="assets/js/index_landing.js"></script>
 </body>
+
 </html>
