@@ -1,11 +1,5 @@
-// /communityhub/hub_modules/store/store_expos.js
-console.log("✅ store/store_expos.js loaded");
-
-/**
- * Vendor ↔ Expo linking + on-page Expo registration (no map).
- * Place this file at: /communityhub/hub_modules/store/store_expos.js
- * Include HTML: /communityhub/hub_modules/store/store_expos.html into your store page near #store-content
- */
+// /communityhub/hub_modules/store/store_expos.js (v2 with Recurring or Specific Dates)
+console.log("✅ store/store_expos.js v2 loaded");
 
 export async function init(options = {}) {
   const supabase = window.supabase;
@@ -16,7 +10,6 @@ export async function init(options = {}) {
     return;
   }
 
-  // Configurable bucket (defaults to expo-images; override by setting window.EXPO_BUCKET)
   const EXPO_BUCKET = (window && window.EXPO_BUCKET) ? window.EXPO_BUCKET : 'expo-images';
 
   const els = ensureUI();
@@ -54,13 +47,11 @@ export async function init(options = {}) {
   els.search.addEventListener("input", debounce(runSearch, 300));
   els.register.addEventListener("click", onOpenRegisterModal);
 
-  // Initial
   renderHint();
   await loadCurrent();
 
   /* ----------------------------- functions ------------------------------ */
   function ensureUI(){
-    // If developer included the HTML file, we'll grab elements. Else, inject minimal shell.
     let root = document.getElementById("store-expos");
     if (!root) {
       root = document.createElement("div");
@@ -95,7 +86,7 @@ export async function init(options = {}) {
       document.querySelector("#store-content")?.appendChild(root);
     }
 
-    // Modal markup (no map, matches expo register fields)
+    // Modal markup (with schedule mode)
     if (!document.getElementById("seModal")) {
       const modal = document.createElement("div");
       modal.innerHTML = `
@@ -145,44 +136,104 @@ export async function init(options = {}) {
 
                 <div class="col-12"><hr/></div>
 
-                <div class="col-md-4">
-                  <label class="form-label">Week</label>
-                  <select id="se-m-ordinal" class="form-select">
-                    <option value="1">First</option>
-                    <option value="2" selected>Second</option>
-                    <option value="3">Third</option>
-                    <option value="4">Fourth</option>
-                    <option value="5">Fifth</option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label d-block">Days</label>
+                <div class="col-12">
+                  <label class="form-label d-block">Schedule Type</label>
                   <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="se-m-day-sat" value="6">
-                    <label class="form-check-label" for="se-m-day-sat">Saturday</label>
+                    <input class="form-check-input" type="radio" name="se-m-schedtype" id="se-m-recurring" value="recurring" checked>
+                    <label class="form-check-label" for="se-m-recurring">Recurring (monthly)</label>
                   </div>
                   <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="se-m-day-sun" value="0">
-                    <label class="form-check-label" for="se-m-day-sun">Sunday</label>
+                    <input class="form-check-input" type="radio" name="se-m-schedtype" id="se-m-specific" value="specific">
+                    <label class="form-check-label" for="se-m-specific">Specific dates</label>
                   </div>
                 </div>
-                <div class="col-md-2">
-                  <label class="form-label">Opens</label>
-                  <input type="time" id="se-m-start" class="form-control" value="10:00">
+
+                <!-- Recurring block -->
+                <div class="col-12" id="se-m-recurring-block">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label">Week</label>
+                      <select id="se-m-ordinal" class="form-select">
+                        <option value="1">First</option>
+                        <option value="2" selected>Second</option>
+                        <option value="3">Third</option>
+                        <option value="4">Fourth</option>
+                        <option value="5">Fifth</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label d-block">Days</label>
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="se-m-day-sat" value="6">
+                        <label class="form-check-label" for="se-m-day-sat">Saturday</label>
+                      </div>
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="se-m-day-sun" value="0">
+                        <label class="form-check-label" for="se-m-day-sun">Sunday</label>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">Opens</label>
+                      <input type="time" id="se-m-start" class="form-control" value="10:00">
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">Closes</label>
+                      <input type="time" id="se-m-end" class="form-control" value="16:00">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Timezone</label>
+                      <select id="se-m-tz" class="form-select">
+                        <option value="America/New_York" selected>America/New_York</option>
+                        <option value="America/Chicago">America/Chicago</option>
+                        <option value="America/Denver">America/Denver</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Valid From</label>
+                      <input type="date" id="se-m-valid-from" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Valid To</label>
+                      <input type="date" id="se-m-valid-to" class="form-control">
+                    </div>
+                  </div>
                 </div>
-                <div class="col-md-2">
-                  <label class="form-label">Closes</label>
-                  <input type="time" id="se-m-end" class="form-control" value="16:00">
+
+                <!-- Specific dates block -->
+                <div class="col-12 d-none" id="se-m-specific-block">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label">Pick a date</label>
+                      <div class="input-group">
+                        <input type="date" id="se-m-date" class="form-control">
+                        <button class="btn btn-outline-secondary" type="button" id="se-m-add-date">Add</button>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">Opens</label>
+                      <input type="time" id="se-m-sd-start" class="form-control" value="10:00">
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">Closes</label>
+                      <input type="time" id="se-m-sd-end" class="form-control" value="16:00">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Timezone</label>
+                      <select id="se-m-sd-tz" class="form-select">
+                        <option value="America/New_York" selected>America/New_York</option>
+                        <option value="America/Chicago">America/Chicago</option>
+                        <option value="America/Denver">America/Denver</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles</option>
+                      </select>
+                    </div>
+                    <div class="col-12">
+                      <div id="se-m-dates-list" class="list-group"></div>
+                      <div class="form-text">Times apply to all selected dates above.</div>
+                    </div>
+                  </div>
                 </div>
-                <div class="col-md-4">
-                  <label class="form-label">Timezone</label>
-                  <select id="se-m-tz" class="form-select">
-                    <option value="America/New_York" selected>America/New_York</option>
-                    <option value="America/Chicago">America/Chicago</option>
-                    <option value="America/Denver">America/Denver</option>
-                    <option value="America/Los_Angeles">America/Los_Angeles</option>
-                  </select>
-                </div>
+
               </div>
             </div>
             <div class="modal-footer">
@@ -218,12 +269,28 @@ export async function init(options = {}) {
       lat: document.getElementById("se-m-lat"),
       lng: document.getElementById("se-m-lng"),
       hero: document.getElementById("se-m-hero"),
+      // schedule type + blocks
+      schedRecurring: document.getElementById("se-m-recurring"),
+      schedSpecific: document.getElementById("se-m-specific"),
+      recurringBlock: document.getElementById("se-m-recurring-block"),
+      specificBlock: document.getElementById("se-m-specific-block"),
+      // recurring controls
       ordinal: document.getElementById("se-m-ordinal"),
       daySat: document.getElementById("se-m-day-sat"),
       daySun: document.getElementById("se-m-day-sun"),
       start: document.getElementById("se-m-start"),
       end: document.getElementById("se-m-end"),
       tz: document.getElementById("se-m-tz"),
+      validFrom: document.getElementById("se-m-valid-from"),
+      validTo: document.getElementById("se-m-valid-to"),
+      // specific controls
+      date: document.getElementById("se-m-date"),
+      addDate: document.getElementById("se-m-add-date"),
+      sdStart: document.getElementById("se-m-sd-start"),
+      sdEnd: document.getElementById("se-m-sd-end"),
+      sdTz: document.getElementById("se-m-sd-tz"),
+      datesList: document.getElementById("se-m-dates-list"),
+      // actions
       submit: document.getElementById("se-m-submit"),
       verify: document.getElementById("se-m-verify"),
       modal: document.getElementById("seModal"),
@@ -242,34 +309,80 @@ export async function init(options = {}) {
     m.lat.value = "";
     m.lng.value = "";
     if (m.hero) m.hero.value = "";
+    // (re)init modal-scoped state
+    m.modal._state = { dates: [] };
+    // schedule defaults
+    m.schedRecurring.checked = true;
+    m.schedSpecific.checked = false;
+    m.recurringBlock.classList.remove("d-none");
+    m.specificBlock.classList.add("d-none");
+
     m.ordinal.value = "2";
     m.daySat.checked = false;
     m.daySun.checked = false;
     m.start.value = "10:00";
     m.end.value = "16:00";
     m.tz.value = "America/New_York";
+    m.validFrom.value = "";
+    m.validTo.value = "";
+    m.date.value = "";
+    m.sdStart.value = "10:00";
+    m.sdEnd.value = "16:00";
+    m.sdTz.value = "America/New_York";
+    m.datesList.innerHTML = "";
+    // state.dates lives on modal
 
     // Wire once
-    if (!m.verify._wired) {
-      m.verify.addEventListener("click", async () => {
-        const addr = (m.address.value || "").trim();
-        if (!addr) return setMStatus("Enter an address to verify.", "error");
-        setMStatus("Verifying address…");
-        const geo = await geocodeAddress(addr);
-        if (!geo) return setMStatus("Could not find that address.", "error");
-        const city = geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.hamlet || geo.address?.municipality || null;
-        const state = inferStateCode(geo.address);
-        m.lat.value = geo.lat.toFixed(6);
-        m.lng.value = geo.lng.toFixed(6);
-        setMStatus(`Address verified ✓${city||state?` (${city||""} ${state||""})`:""}`, "success");
-      });
-      m.verify._wired = true;
-    }
+    // (re)bind verify each open
+if (m.verify._handler) m.verify.removeEventListener("click", m.verify._handler);
+m.verify._handler = async () => {
+  const addr = (m.address.value || "").trim();
+  if (!addr) return setMStatus("Enter an address to verify.", "error");
+  setMStatus("Verifying address…");
+  const geo = await geocodeAddress(addr);
+  if (!geo) return setMStatus("Could not find that address.", "error");
+  const city = geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.hamlet || geo.address?.municipality || null;
+  const state = inferStateCode(geo.address);
+  m.lat.value = geo.lat.toFixed(6);
+  m.lng.value = geo.lng.toFixed(6);
+  setMStatus(`Address verified ✓${city||state?` (${city||""} ${state||""})`:""}`, "success");
+};
+m.verify.addEventListener("click", m.verify._handler);
 
-    if (!m.submit._wired) {
-      m.submit.addEventListener("click", () => onSubmitExpo(m));
-      m.submit._wired = true;
-    }
+    // Toggle schedule blocks
+    // (re)bind schedule toggle each open
+if (m._toggleRecurring) {
+  m.schedRecurring.removeEventListener("change", m._toggleRecurring);
+  m.schedSpecific.removeEventListener("change", m._toggleRecurring);
+}
+m._toggleRecurring = () => {
+  if (m.schedSpecific.checked) {
+    m.recurringBlock.classList.add("d-none");
+    m.specificBlock.classList.remove("d-none");
+  } else {
+    m.recurringBlock.classList.remove("d-none");
+    m.specificBlock.classList.add("d-none");
+  }
+};
+m.schedRecurring.addEventListener("change", m._toggleRecurring);
+m.schedSpecific.addEventListener("change", m._toggleRecurring);
+
+    // Add dates
+    // (re)bind add-date each open
+if (m.addDate._handler) m.addDate.removeEventListener("click", m.addDate._handler);
+m.addDate._handler = () => {
+  const d = (m.date.value || "").trim();
+  if (!d) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return alert("Invalid date");
+  const arr = m.modal._state.dates;
+  if (!arr.includes(d)) arr.push(d);
+  renderDatesList(m);
+};
+m.addDate.addEventListener("click", m.addDate._handler);
+
+    if (m.submit._handler) m.submit.removeEventListener("click", m.submit._handler);
+m.submit._handler = () => onSubmitExpo(m);
+m.submit.addEventListener("click", m.submit._handler);
 
     // Show
     if (window.bootstrap) {
@@ -280,6 +393,28 @@ export async function init(options = {}) {
       m.modal.style.display = "block";
       m.modal.removeAttribute("aria-hidden");
     }
+  }
+
+  function renderDatesList(m){
+    m.datesList.innerHTML = "";
+    if (!(m.modal._state?.dates || []).length) {
+      m.datesList.innerHTML = `<div class="list-group-item text-muted small">No dates added yet.</div>`;
+      return;
+    }
+    (m.modal._state.dates).sort();
+    m.modal._state.dates.forEach(d => {
+      const li = document.createElement("div");
+      li.className = "list-group-item d-flex align-items-center justify-content-between";
+      li.innerHTML = `<div>${d}</div><button class="btn btn-sm btn-outline-danger" data-remove="${d}">Remove</button>`;
+      m.datesList.appendChild(li);
+    });
+    m.datesList.querySelectorAll("[data-remove]")?.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const d = btn.getAttribute("data-remove");
+        m.modal._state.dates = m.modal._state.dates.filter(x => x !== d);
+        renderDatesList(m);
+      });
+    });
   }
 
   async function onSubmitExpo(m){
@@ -294,11 +429,6 @@ export async function init(options = {}) {
       m.lat.value = geo.lat.toFixed(6);
       m.lng.value = geo.lng.toFixed(6);
     }
-
-    const days = [];
-    if (m.daySat.checked) days.push(6);
-    if (m.daySun.checked) days.push(0);
-    if (!days.length) return setMStatus("Pick Saturday and/or Sunday", "error");
 
     setMStatus("Submitting…");
 
@@ -338,10 +468,40 @@ export async function init(options = {}) {
       }
     }
 
-    // Save schedules
-    const ordinal = parseInt(m.ordinal.value || "2", 10);
-    const rows = days.map(d => ({ expo_id: expoId, ordinal, day_of_week: d, start_time: m.start.value || "10:00", end_time: m.end.value || "16:00", timezone: m.tz.value || "America/New_York", active: true }));
-    if (rows.length) {
+    // Branch: recurring vs specific
+    if (document.getElementById("se-m-specific").checked) {
+      // Specific dates → insert many into expo_calendar_dates
+      const dates = (m.modal._state && Array.isArray(m.modal._state.dates)) ? m.modal._state.dates : [];
+      if (!dates.length) return setMStatus("Add at least one date.", "error");
+
+      const rows = dates.map(d => ({
+        expo_id: expoId,
+        event_date: d,
+        start_time: m.sdStart.value || "10:00",
+        end_time: m.sdEnd.value || "16:00",
+        timezone: m.sdTz.value || "America/New_York"
+      }));
+      const { error: dErr } = await supabase.from("expo_calendar_dates").insert(rows);
+      if (dErr) { console.warn("⚠️ date insert failed:", dErr); }
+    } else {
+      // Recurring monthly → insert schedule rows with valid_from/valid_to
+      const days = [];
+      if (m.daySat.checked) days.push(6);
+      if (m.daySun.checked) days.push(0);
+      if (!days.length) return setMStatus("Pick Saturday and/or Sunday", "error");
+
+      const ordinal = parseInt(m.ordinal.value || "2", 10);
+      const rows = days.map(d => ({
+        expo_id: expoId,
+        ordinal,
+        day_of_week: d,
+        start_time: m.start.value || "10:00",
+        end_time: m.end.value || "16:00",
+        timezone: m.tz.value || "America/New_York",
+        active: true,
+        valid_from: m.validFrom.value || null,
+        valid_to: m.validTo.value || null
+      }));
       const { error: schedErr } = await supabase.from("expo_schedules").insert(rows);
       if (schedErr) console.warn("⚠️ schedule insert failed:", schedErr);
     }
@@ -351,7 +511,6 @@ export async function init(options = {}) {
     if (linkErr) console.warn("⚠️ link store→expo failed:", linkErr);
 
     setMStatus("Submitted! Pending approval.", "success");
-    // Close modal + refresh lists
     setTimeout(() => {
       if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(m.modal).hide();
       else { m.modal.classList.remove("show"); m.modal.style.display = "none"; m.modal.setAttribute("aria-hidden","true"); }
@@ -397,7 +556,6 @@ export async function init(options = {}) {
           </div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          ${r.booth ? `<span class="badge text-bg-secondary">Booth ${safe(r.booth)}</span>` : ""}
           <button class="btn btn-sm btn-outline-danger" data-remove="${e.id}">Remove</button>
         </div>`;
       els.current.appendChild(item);
@@ -463,11 +621,7 @@ export async function init(options = {}) {
   async function addAttendance(expoId){
     if (!expoId) return;
     setStatus("Saving…");
-    const row = {
-      store_id: storeId,
-      expo_id: expoId,
-      active: true
-    };
+    const row = { store_id: storeId, expo_id: expoId, active: true };
     const { error } = await supabase.from("store_expos").upsert(row, { onConflict: "store_id,expo_id" });
     if (error) {
       console.error("❌ add attendance failed:", error);
@@ -495,6 +649,12 @@ export async function init(options = {}) {
   }
 
   function setStatus(msg){ if (els.status) els.status.textContent = msg || ""; }
+  function setMStatus(msg, type){
+    const el = document.getElementById("se-m-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "small " + (type==="error" ? "text-danger" : type==="success" ? "text-success" : "text-muted");
+  }
   function safe(s){ return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function debounce(fn, ms){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; }
 

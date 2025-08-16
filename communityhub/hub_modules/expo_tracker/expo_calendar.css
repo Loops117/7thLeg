@@ -1,0 +1,21 @@
+/* /communityhub/hub_modules/expo_tracker/expo_calendar.css */
+#x-calendar {
+  min-height: 520px;
+}
+@media (max-width: 768px) {
+  #x-calendar { min-height: 420px; }
+}
+.expo-toolbar {
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.nav-tabs .nav-link { cursor: pointer; }
+#x-map { height: 540px; }
+@media (max-width: 768px) {
+  #x-map { height: 380px; }
+}
+/* list */
+#x-list .list-group-item img.thumb {
+  width: 44px; height: 44px; object-fit: cover; border-radius: 6px;
+  outline: 1px solid rgba(0,0,0,0.08);
+}

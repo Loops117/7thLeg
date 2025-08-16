@@ -1,571 +1,707 @@
-// /communityhub/hub_modules/expo_tracker.js
+// /communityhub/hub_modules/expo_tracker.js (Explore split-view, fixed state filter, styled tabs, expandable list)
 console.log("✅ expo_tracker.js loaded");
 
-const supabase = window.supabase;
-
-// Globals used across functions (define BEFORE use to avoid TDZ)
-let __leafletLoading = false;
-let __map = null, __layer = null, __mapRetry = null;
-
-/* =============================== BOOT =================================== */
-function boot(){
+(async function boot(){
   try {
-    ensureShell();
-    ensureMapShell();
-    ensureModalHTML();
-    bindRegisterWiring();
-    ensureLeaflet().finally(() => start()); // start regardless; we'll retry map init inside
-    console.log("🟢 expo_tracker booted");
+    await start();
+    console.log("✅ expo_tracker.js loaded successfully");
   } catch (e) {
-    console.error("❌ expo_tracker boot error:", e);
+    console.error("❌ Expo Tracker init failed:", e);
   }
-}
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", boot);
-} else {
-  boot();
-}
-
-/* ---------------------------- ENSURE BASIC UI ---------------------------- */
-function ensureShell(){
-  const root = document.getElementById("expo-root") || document.body;
-
-  // Register button
-  if (!document.getElementById("register-expo-btn")) {
-    const header = document.getElementById("expo-header")
-      || root.querySelector(".d-flex.align-items-center.justify-content-between")
-      || root;
-    const btn = document.createElement("button");
-    btn.id = "register-expo-btn";
-    btn.type = "button";
-    btn.className = "btn btn-primary ms-auto";
-    btn.textContent = "Register an Expo";
-    header.appendChild(btn);
-    console.log("🟩 Injected register button");
-  }
-
-  // State filter
-  if (!document.getElementById("state-select")) {
-    const cardBody = root.querySelector("#expo-list")?.closest(".card")?.querySelector(".card-body")
-      || root.querySelector(".card-body")
-      || root;
-    const wrap = document.createElement("div");
-    wrap.className = "mb-2";
-    wrap.innerHTML = `
-      <label class="form-label mb-1 small">State</label>
-      <select id="state-select" class="form-select form-select-sm"></select>`;
-    cardBody.prepend(wrap);
-    console.log("🟩 Injected state filter shell");
-  }
-
-  // Populate states if empty
-  const sel = document.getElementById("state-select");
-  if (sel && !sel._filled) {
-    const states = ["","AL","AK","AZ","AR","CA","CO","CT","DC","DE","FL","GA","HI","IA","ID","IL","IN","KS","KY","LA","MA","MD","ME","MI","MN","MO","MS","MT","NC","ND","NE","NH","NJ","NM","NV","NY","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VA","VT","WA","WI","WV","WY"];
-    sel.innerHTML = `<option value="">Pick a state</option>` + states.filter(Boolean).map(s => `<option value="${s}">${s}</option>`).join("");
-    sel._filled = true;
-    console.log("🟩 Populated state options");
-  }
-}
-
-/* --------------------------- ENSURE MAP MARKUP --------------------------- */
-function ensureMapShell(){
-  // Guarantee a visible map container exists
-  let mapEl = document.getElementById("map");
-  if (!mapEl) {
-    mapEl = document.createElement("div");
-    mapEl.id = "map";
-    (document.getElementById("expo-root") || document.body).appendChild(mapEl);
-    console.log("🟩 Injected #map container");
-  }
-  // enforce dimensions in case external CSS zeroes it out
-  mapEl.style.height = mapEl.style.height || "calc(100vh - 140px)";
-  mapEl.style.minHeight = mapEl.style.minHeight || "420px";
-  mapEl.style.borderRadius = mapEl.style.borderRadius || "12px";
-}
-
-/* -------------------------- ENSURE LEAFLET LOADED ------------------------ */
-function ensureLeaflet(){
-  return new Promise((resolve, reject) => {
-    if (window.L) return resolve();
-    if (__leafletLoading) {
-      let tries = 0;
-      const iv = setInterval(() => {
-        if (window.L) { clearInterval(iv); resolve(); }
-        else if ((tries += 1) > 100) { clearInterval(iv); reject(new Error("Leaflet load timeout")); }
-      }, 60);
-      return;
-    }
-    __leafletLoading = true;
-
-    if (!document.getElementById("leaflet-css")) {
-      const link = document.createElement("link");
-      link.id = "leaflet-css";
-      link.rel = "stylesheet";
-      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      document.head.appendChild(link);
-    }
-    const s = document.createElement("script");
-    s.id = "leaflet-js";
-    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    s.onload = () => { resolve(); };
-    s.onerror = () => { reject(new Error("Leaflet script failed to load")); };
-    document.head.appendChild(s);
-  });
-}
-
-/* --------------------------- ENSURE MODAL MARKUP ------------------------- */
-function ensureModalHTML(){
-  if (document.getElementById("expoModal")) return;
-  const modal = document.createElement("div");
-  modal.innerHTML = `
-  <div class="modal fade" id="expoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Register an Expo</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div id="x-status" class="text-muted small mb-2"></div>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Expo Name</label>
-              <input type="text" id="x-name" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Website (optional)</label>
-              <input type="url" id="x-website" class="form-control" placeholder="https://…">
-            </div>
-            <div class="col-12">
-              <label class="form-label">Description (optional)</label>
-              <textarea id="x-description" class="form-control" rows="2"></textarea>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label">Venue Name</label>
-              <input type="text" id="x-venue" class="form-control">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Address</label>
-              <div class="input-group">
-                <input type="text" id="x-address" class="form-control" placeholder="Street, City, State ZIP">
-                <button class="btn btn-outline-secondary" type="button" id="x-verify">Verify</button>
-              </div>
-              <div class="form-text">We’ll validate and place the pin automatically.</div>
-            </div>
-
-            <input type="hidden" id="x-lat">
-            <input type="hidden" id="x-lng">
-
-            <div class="col-md-8">
-              <label class="form-label">Hero Image (optional)</label>
-              <input type="file" id="x-hero" class="form-control" accept="image/*">
-            </div>
-
-            <div class="col-12"><hr/></div>
-
-            <div class="col-md-4">
-              <label class="form-label">Week</label>
-              <select id="x-ordinal" class="form-select">
-                <option value="1">First</option>
-                <option value="2" selected>Second</option>
-                <option value="3">Third</option>
-                <option value="4">Fourth</option>
-                <option value="5">Fifth</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label d-block">Days</label>
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="x-day-sat" value="6">
-                <label class="form-check-label" for="x-day-sat">Saturday</label>
-              </div>
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="x-day-sun" value="0">
-                <label class="form-check-label" for="x-day-sun">Sunday</label>
-              </div>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Opens</label>
-              <input type="time" id="x-start" class="form-control" value="10:00">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Closes</label>
-              <input type="time" id="x-end" class="form-control" value="16:00">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Timezone</label>
-              <select id="x-tz" class="form-select">
-                <option value="America/New_York" selected>America/New_York</option>
-                <option value="America/Chicago">America/Chicago</option>
-                <option value="America/Denver">America/Denver</option>
-                <option value="America/Los_Angeles">America/Los_Angeles</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button id="x-submit" class="btn btn-primary">Submit Expo</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
-  document.body.appendChild(modal.firstElementChild);
-  console.log("🟩 Injected modal markup");
-}
-
-/* -------------------------- WIRE REGISTER HANDLERS ----------------------- */
-function bindRegisterWiring(){
-  const btn = document.getElementById("register-expo-btn");
-  if (btn && !btn._wired) {
-    btn.addEventListener("click", onOpenModal);
-    btn._wired = true;
-    console.log("🟩 Register button wired (direct)");
-  }
-  if (!bindRegisterWiring._delegated) {
-    document.addEventListener("click", (e) => {
-      const el = e.target.closest("#register-expo-btn");
-      if (!el) return;
-      console.log("🟦 Register clicked (delegated)");
-      e.preventDefault();
-      onOpenModal();
-    });
-    bindRegisterWiring._delegated = true;
-    console.log("🟩 Register (delegated) handler attached");
-  }
-}
-
-function onOpenModal(){
-  clearExpoForm();
-  const modalEl = document.getElementById("expoModal");
-  if (!modalEl) return console.warn("⚠️ expoModal not found");
-  if (window.bootstrap) {
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.show();
-  } else {
-    modalEl.classList.add("show");
-    modalEl.style.display = "block";
-    modalEl.removeAttribute("aria-hidden");
-  }
-}
-
-/* --------------------------- FORM HELPERS (GLOBAL) ----------------------- */
-function clearExpoForm(){
-  const els = getModalEls();
-  if (!els) return;
-  els.status.textContent = "";
-  els.name.value = "";
-  els.website.value = "";
-  els.desc.value = "";
-  els.venue.value = "";
-  els.address.value = "";
-  els.lat.value = "";
-  els.lng.value = "";
-  if (els.hero) els.hero.value = "";
-  els.ordinal.value = "2";
-  els.daySat.checked = false;
-  els.daySun.checked = false;
-  els.start.value = "10:00";
-  els.end.value = "16:00";
-  els.tz.value = "America/New_York";
-}
-
-function getModalEls(){
-  const o = {
-    status: document.getElementById("x-status"),
-    name: document.getElementById("x-name"),
-    website: document.getElementById("x-website"),
-    desc: document.getElementById("x-description"),
-    venue: document.getElementById("x-venue"),
-    address: document.getElementById("x-address"),
-    lat: document.getElementById("x-lat"),
-    lng: document.getElementById("x-lng"),
-    hero: document.getElementById("x-hero"),
-    ordinal: document.getElementById("x-ordinal"),
-    daySat: document.getElementById("x-day-sat"),
-    daySun: document.getElementById("x-day-sun"),
-    start: document.getElementById("x-start"),
-    end: document.getElementById("x-end"),
-    tz: document.getElementById("x-tz"),
-    submit: document.getElementById("x-submit"),
-    verify: document.getElementById("x-verify"),
-  };
-  return o.name ? o : null;
-}
+})();
 
 /* --------------------------------- MAIN ---------------------------------- */
-function start() {
-  // Rebind in case DOM changed
-  bindRegisterWiring();
+async function start(){
+  const supabase = window.supabase;
+  if (!supabase) throw new Error("Supabase client missing");
 
   const els = {
-    map: document.getElementById("map"),
-    state: document.getElementById("state-select"),
-    search: document.getElementById("search"),
-    list: document.getElementById("expo-list"),
-    status: document.getElementById("status"),
-    m: getModalEls()
+    tabs: document.getElementById("x-tabs"),
+    state: document.getElementById("x-state"),
+    search: document.getElementById("x-search"),
+    clear: document.getElementById("x-clear"),
+    openReg: document.getElementById("x-open-register"),
+    // views
+    vExplore: document.getElementById("x-view-explore"),
+    vCalendar: document.getElementById("x-view-calendar"),
+    vVendors: document.getElementById("x-view-vendors"),
+    list: document.getElementById("x-explore-list"),
+    calRoot: document.getElementById("x-calendar-root"),
+    map: document.getElementById("x-map"),
   };
-
-  // Try to init the map now, and keep retrying until Leaflet shows up
-  initMainMap(els);
-  scheduleMapRetry(els);
-
-  /* -------------------------- filters + search --------------------------- */
-  els.state?.addEventListener("change", refresh);
-  els.search?.addEventListener("input", debounce(refresh, 250));
-
-  /* --------------------------- verify address ---------------------------- */
-  if (els.m?.verify && !els.m.verify._wired) {
-    els.m.verify.addEventListener("click", async () => {
-      const addr = (els.m.address.value || "").trim();
-      if (!addr) return setMStatus("Enter an address to verify.", "error");
-      setMStatus("Verifying address…");
-      const geo = await geocodeAddress(addr);
-      if (!geo) return setMStatus("Could not find that address.", "error");
-      els.m.lat.value = geo.lat.toFixed(6);
-      els.m.lng.value = geo.lng.toFixed(6);
-      setMStatus(`Address verified ✓`, "success");
-    });
-    els.m.verify._wired = true;
+  if (!els.tabs || !els.state || !els.vExplore) {
+    console.warn("⚠️ Expo Tracker: missing required DOM elements");
+    return;
   }
 
-  /* ---------------------------- submit handler --------------------------- */
-  if (els.m?.submit && !els.m.submit._wired) {
-    els.m.submit.addEventListener("click", () => onExpoSubmit(els));
-    els.m.submit._wired = true;
-    console.log("🟩 Modal submit wired");
+  // Wire filters
+  els.clear?.addEventListener("click", () => { if (els.search) els.search.value = ""; refreshCurrentView(); });
+  els.search?.addEventListener("input", debounce(() => refreshCurrentView(), 250));
+  els.state?.addEventListener("change", refreshCurrentView);
+
+  // Tabs
+  els.tabs.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-view]"); if (!a) return;
+    const view = a.getAttribute("data-view");
+    if (view === "register") { onOpenModal(); return; }
+    setActiveTab(view);
+    refreshCurrentView();
+  });
+
+  // direct register button
+  els.openReg?.addEventListener("click", onOpenModal);
+
+  // Default from URL
+  const params = new URLSearchParams(window.location.search);
+  const v = params.get("view") || "explore";
+  const st = params.get("state") || null;
+  if (st && els.state) { els.state.value = normalizeState(st) || st; }
+  setActiveTab(v);
+
+  // initial load
+  refreshCurrentView();
+
+  /* --------------------------- view management --------------------------- */
+  function setActiveTab(view){
+    const links = els.tabs.querySelectorAll(".nav-link");
+    links.forEach(l => l.classList.remove("active"));
+    const active = els.tabs.querySelector(`[data-view="${view}"]`);
+    if (active) active.classList.add("active");
+
+    // Show/hide views
+    els.vExplore.classList.add("d-none");
+    els.vCalendar.classList.add("d-none");
+    els.vVendors.classList.add("d-none");
+    if (view === "explore") els.vExplore.classList.remove("d-none");
+    if (view === "calendar") els.vCalendar.classList.remove("d-none");
+    if (view === "vendors") els.vVendors.classList.remove("d-none");
+
+    // update URL (no navigation)
+    const p = new URLSearchParams(window.location.search);
+    p.set("view", view);
+    if (els.state?.value) p.set("state", els.state.value);
+    history.replaceState({}, "", `${location.pathname}?${p.toString()}`);
   }
 
-  /* ------------------------------ initial load --------------------------- */
-  refresh();
+  async function refreshCurrentView(){
+    const view = els.tabs.querySelector(".nav-link.active")?.getAttribute("data-view") || "explore";
+    if (view === "explore") return loadExplore();
+    if (view === "calendar") return loadCalendar();
+    if (view === "vendors") return loadVendors();
+  }
 
-  /* ------------------------------ inner funcs ---------------------------- */
-  async function onExpoSubmit(els){
-    const name = (els.m.name.value || "").trim();
-    if (!name) { setMStatus("Expo name is required", "error"); return; }
-
-    // Geocode if needed
-    if ((!els.m.lat.value || !els.m.lng.value) && els.m.address.value) {
-      setMStatus("Finding location from address…");
-      const geo = await geocodeAddress(els.m.address.value);
-      if (geo) {
-        els.m.lat.value = geo.lat.toFixed(6);
-        els.m.lng.value = geo.lng.toFixed(6);
-      } else {
-        setMStatus("Could not resolve that address.", "error");
-        return;
-      }
+  /* ---------------------------- Explore (list+map) ---------------------------- */
+  let map, markers = [];
+  async function loadExplore(){
+    // Map first so we can focus markers on item click
+    await ensureLeaflet();
+    const hint = document.getElementById("x-map-hint");
+    if (!window.L) {
+      hint && (hint.textContent = "Leaflet failed to load.");
+    } else if (hint) {
+      hint.textContent = "Tip: click a card to open its pin.";
+    }
+    if (!map && window.L) {
+      map = L.map("x-map").setView([39.82,-98.58], 4); // USA
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OSM" }).addTo(map);
     }
 
-    const days = [];
-    if (els.m.daySat.checked) days.push(6);
-    if (els.m.daySun.checked) days.push(0);
-    if (!days.length) { setMStatus("Pick Saturday and/or Sunday", "error"); return; }
+    const stateSel = normalizeState(els.state?.value || "");
+    const q = (els.search?.value || "").trim().toLowerCase();
+
+    // fetch approved expos filtered by state (if any)
+    let { data, error } = await supabase.from("expos").select("id, name, city, state, venue_name, lat, lng, hero_image, website, description, approved").eq("approved", true).order("name");
+    if (error) { console.error("❌ expos load failed:", error); data = []; }
+
+    const expos = (data || []).filter(e => {
+      if (stateSel && normalizeState(e.state) !== stateSel) return false;
+      if (!q) return true;
+      return [e.name, e.city, e.state, e.venue_name].filter(Boolean).some(v => String(v).toLowerCase().includes(q));
+    });
+
+    // Render list
+    if (!expos.length) {
+      els.list.innerHTML = `<div class="list-group-item small text-muted">No expos found.</div>`;
+    } else {
+      els.list.innerHTML = expos.map(e => {
+        const hero = e.hero_image || "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+        const sub = [e.city, normalizeState(e.state)].filter(Boolean).join(", ");
+        return `
+        <div class="list-group-item" data-expo="${e.id}">
+          <div class="d-flex align-items-center gap-2">
+            <img src="${safe(hero)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;outline:1px solid rgba(0,0,0,0.08)">
+            <div class="flex-grow-1">
+              <div class="fw-semibold">${safe(e.name)}</div>
+              <div class="text-muted small">${safe(sub)}${e.venue_name?` • ${safe(e.venue_name)}`:""}</div>
+            </div>
+            ${e.website ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" href="${safe(e.website)}">Website</a>` : ""}
+          </div>
+          <div class="x-expando" id="expando-${e.id}">
+            <div class="small mt-2">${safe(e.description || "")}</div>
+            <div class="small text-muted mt-1" data-upcoming="${e.id}">Loading schedule…</div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    // Render markers
+    markers.forEach(m => m.remove()); markers = [];
+    const bounds = [];
+    (expos || []).forEach(e => {
+      const lat = parseFloat(e.lat), lng = parseFloat(e.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || !window.L) return;
+      const m = L.marker([lat,lng]).addTo(map).bindPopup(`<strong>${safe(e.name)}</strong><br>${safe(e.city||"")} ${safe(normalizeState(e.state)||"")}${e.venue_name?`<br>${safe(e.venue_name)}`:""}`);
+      m.__expoId = e.id;
+      markers.push(m); bounds.push([lat,lng]);
+    });
+    if (bounds.length && map) map.fitBounds(bounds, { padding: [16,16] });
+
+    // Click handlers: expand + open marker + fetch upcoming
+    els.list.querySelectorAll("[data-expo]").forEach(item => {
+      item.addEventListener("click", async () => {
+        const id = item.getAttribute("data-expo");
+        const exp = document.getElementById(`expando-${id}`);
+        const show = !exp.classList.contains("show");
+        // collapse others
+        els.list.querySelectorAll(".x-expando.show").forEach(x => x.classList.remove("show"));
+        if (show) { exp.classList.add("show"); await fillUpcoming(id); }
+        // open marker
+        const m = markers.find(mm => mm.__expoId === id);
+        if (m && map) { m.openPopup(); map.panTo(m.getLatLng()); }
+      });
+    });
+  }
+
+  async function fillUpcoming(expoId){
+    const root = document.querySelector(`[data-upcoming="${expoId}"]`);
+    if (!root) return;
+    root.textContent = "Loading schedule…";
+    // Next 6 months window
+    const from = new Date(); const to = new Date(from.getFullYear(), from.getMonth()+6, from.getDate());
+    // 1) specific dates in window
+    let { data: dates, error: dErr } = await supabase
+      .from("expo_calendar_dates")
+      .select("event_date, start_time, end_time, timezone")
+      .eq("expo_id", expoId)
+      .gte("event_date", iso(from))
+      .lte("event_date", iso(to))
+      .order("event_date");
+    if (dErr) dates = [];
+    // 2) recurring rules
+    let { data: rules, error: rErr } = await supabase
+      .from("expo_schedules")
+      .select("ordinal, day_of_week, start_time, end_time, timezone, active, valid_from, valid_to")
+      .eq("expo_id", expoId)
+      .eq("active", true);
+    if (rErr) rules = [];
+
+    // expand recurring for the window
+    const rec = expandRecurring(rules.map(r => ({ expos: {}, ...r, expo_id: expoId })), from, to);
+    // merge: specific overrides recurring same day
+    const key = (d) => d;
+    const datesKeys = new Set((dates||[]).map(x => x.event_date));
+    const merged = [
+      ...(dates||[]).map(x => ({ date: x.event_date, time: formatTimeRange(x.start_time, x.end_time, x.timezone) })),
+      ...(rec||[]).filter(x => !datesKeys.has(x.date)).map(x => ({ date: x.date, time: x.time }))
+    ].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
+
+    if (!merged.length) {
+      root.textContent = "No upcoming dates found.";
+    } else {
+      root.innerHTML = merged.map(m => `<div>${m.date} <span class="text-muted">${safe(m.time||"")}</span></div>`).join("");
+    }
+  }
+
+  /* ----------------------------- Calendar view --------------------------- */
+  let calendar; // FullCalendar instance
+  async function loadCalendar(){
+    await ensureFullCalendar();
+    const body = els.vCalendar?.querySelector(".card-body");
+    if (!window.FullCalendar) {
+      if (body) body.innerHTML = `<div class="text-muted small">Calendar failed to load.</div>`;
+      return;
+    }
+    if (!calendar) {
+      const el = els.calRoot;
+      if (!el) return;
+      calendar = new FullCalendar.Calendar(el, {
+        initialView: (window.innerWidth <= 768) ? "listMonth" : "dayGridMonth",
+        headerToolbar: {
+          left: "title",
+          center: "",
+          right: "prev,next today dayGridMonth,listMonth"
+        },
+        height: "auto",
+        datesSet: () => refreshEvents(),
+        eventClick: (info) => {
+          const e = info.event.extendedProps;
+          const html = `<div><strong>${safe(info.event.title)}</strong><br>${safe(e.city || "")} ${safe(e.state || "")}<br>${safe(e.venue || "")}<br><span class="text-muted">${safe(e.time || "")}</span></div>`;
+          alert(html.replace(/<br>/g, "\n"));
+        }
+      });
+      calendar.render();
+    }
+    await refreshEvents();
+  }
+
+  async function refreshEvents(){
+    if (!calendar) return;
+    const range = calendar.view.activeStart && calendar.view.activeEnd
+      ? { start: calendar.view.activeStart, end: calendar.view.activeEnd }
+      : monthRange(new Date());
+    const stateSel = normalizeState(els.state?.value || "");
+    const q = (els.search?.value || "").trim();
+
+    // specific dates
+    let { data: dates, error: dErr } = await supabase
+      .from("expo_calendar_dates")
+      .select("expo_id, event_date, start_time, end_time, timezone, expos:expo_id (id, name, city, state, venue_name, approved)")
+      .gte("event_date", iso(range.start))
+      .lte("event_date", iso(range.end))
+      .order("event_date");
+    if (dErr) dates = [];
+    dates = (dates || []).filter(r => r.expos?.approved && (!stateSel || normalizeState(r.expos.state) === stateSel) && matchesSearch(r.expos, q));
+
+    // recurring rules
+    let { data: rules, error: rErr } = await supabase
+      .from("expo_schedules")
+      .select("expo_id, ordinal, day_of_week, start_time, end_time, timezone, active, valid_from, valid_to, expos:expo_id (id, name, city, state, venue_name, approved)")
+      .eq("active", true);
+    if (rErr) rules = [];
+    rules = (rules || []).filter(r => r.expos?.approved && (!stateSel || normalizeState(r.expos.state) === stateSel) && matchesSearch(r.expos, q));
+
+    const recInstances = expandRecurring(rules, range.start, range.end);
+
+    // override recurring by specific on same day
+    const key = (expo_id, d) => `${expo_id}_${d}`;
+    const dateKeys = new Set(dates.map(x => key(x.expo_id, x.event_date)));
+    const merged = [
+      ...dates.map(x => ({
+        date: x.event_date,
+        title: x.expos?.name || "Expo",
+        time: formatTimeRange(x.start_time, x.end_time, x.timezone),
+        city: x.expos?.city, state: x.expos?.state, venue: x.expos?.venue_name,
+        expo_id: x.expo_id
+      })),
+      ...recInstances.filter(x => !dateKeys.has(key(x.expo_id, x.date)))
+    ];
+
+    calendar.removeAllEvents();
+    calendar.addEventSource(merged.map(ev => ({
+      title: ev.title,
+      start: ev.date,
+      allDay: true,
+      extendedProps: { city: ev.city, state: ev.state, venue: ev.venue, time: ev.time, expo_id: ev.expo_id }
+    })));
+  }
+
+  /* ------------------------------- Vendors view -------------------------- */
+  async function loadVendors(){
+    const body = els.vVendors?.querySelector(".card-body");
+    if (!body) return;
+    body.innerHTML = `<div class="text-muted small">Loading vendors…</div>`;
+
+    const stateSel = normalizeState(els.state?.value || "");
+
+    // expos in state
+    let { data: expos, error: eErr } = await supabase
+      .from("expos")
+      .select("id, name, city, state, venue_name")
+      .eq("approved", true);
+    if (eErr) { console.warn("⚠️ expos load failed:", eErr); expos = []; }
+    expos = (expos || []).filter(x => (!stateSel || normalizeState(x.state) === stateSel));
+    if (!expos.length) { body.innerHTML = `<div class="text-muted small">No expos found for this state.</div>`; return; }
+
+    const expoIds = expos.map(x => x.id);
+
+    // links
+    let links = [];
+    if (expoIds.length) {
+      const res = await supabase.from("store_expos").select("expo_id, store_id").in("expo_id", expoIds);
+      links = res.data || [];
+      if (res.error) console.warn("⚠️ links load failed:", res.error);
+    }
+    if (!links.length) { body.innerHTML = `<div class="text-muted small">No vendors linked yet.</div>`; return; }
+
+    // stores (only id,name to match your schema)
+    const storeIds = Array.from(new Set(links.map(l => l.store_id)));
+    let stores = [];
+    const sres = await supabase.from("store_profiles").select("id, name").in("id", storeIds);
+    if (sres.error) console.warn("⚠️ stores load failed:", sres.error);
+    stores = sres.data || [];
+    const storeMap = new Map(stores.map(s => [s.id, s]));
+
+    const byExpo = new Map(expos.map(e => [e.id, { expo: e, vendors: [] }]));
+    links.forEach(l => {
+      const grp = byExpo.get(l.expo_id);
+      const s = storeMap.get(l.store_id);
+      if (grp && s) grp.vendors.push(s);
+    });
+
+    const sections = [];
+    byExpo.forEach(({ expo, vendors }) => {
+      if (!vendors.length) return;
+      sections.push(`
+        <div class="mb-3">
+          <div class="d-flex align-items-center justify-content-between">
+            <h6 class="mb-1">${safe(expo.name)}</h6>
+            <div class="text-muted small">${safe([expo.city, expo.state].filter(Boolean).join(", "))}</div>
+          </div>
+          <div class="row g-2">
+            ${vendors.map(v => `
+              <div class="col-12 col-md-6">
+                <div class="border rounded p-2 d-flex align-items-center gap-2">
+                  <div class="rounded bg-light d-inline-flex align-items-center justify-content-center" style="width:36px;height:36px;">
+                    <span class="small">🛍️</span>
+                  </div>
+                  <div>
+                    <div class="fw-semibold small">${safe(v.name)}</div>
+                  </div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `);
+    });
+
+    body.innerHTML = sections.length ? sections.join("") : `<div class="text-muted small">No vendors linked yet.</div>`;
+  }
+
+  /* ----------------------------- Register flow --------------------------- */
+  function onOpenModal(){
+    clearExpoForm();
+    const modalEl = document.getElementById("expoModal");
+    if (!modalEl) return console.warn("⚠️ expoModal not found");
+    modalEl._state = { dates: [] };
+    const dl = document.getElementById("x-dates-list"); if (dl) dl.innerHTML = "";
+    const hero = document.getElementById("x-hero"); if (hero) hero.value = "";
+
+    // default schedule block
+    const r = document.getElementById("x-recurring");
+    const s = document.getElementById("x-specific");
+    const rb = document.getElementById("x-recurring-block");
+    const sb = document.getElementById("x-specific-block");
+    if (r && s && rb && sb) { r.checked = true; s.checked = false; rb.classList.remove("d-none"); sb.classList.add("d-none"); }
+
+    if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    else { modalEl.classList.add("show"); modalEl.style.display = "block"; modalEl.removeAttribute("aria-hidden"); }
+  }
+
+  document.getElementById("x-recurring")?.addEventListener("change", toggleBlocks);
+  document.getElementById("x-specific")?.addEventListener("change", toggleBlocks);
+  function toggleBlocks(){
+    const s = document.getElementById("x-specific");
+    const rb = document.getElementById("x-recurring-block");
+    const sb = document.getElementById("x-specific-block");
+    if (!s || !rb || !sb) return;
+    if (s.checked) { rb.classList.add("d-none"); sb.classList.remove("d-none"); }
+    else { rb.classList.remove("d-none"); sb.classList.add("d-none"); }
+  }
+
+  const addBtn = document.getElementById("x-add-date");
+  const dateInput = document.getElementById("x-date");
+  if (addBtn && dateInput) {
+    if (addBtn._handler) addBtn.removeEventListener("click", addBtn._handler);
+    addBtn._handler = () => {
+      const d = (dateInput.value || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+      const modalEl = document.getElementById("expoModal");
+      if (!modalEl._state) modalEl._state = { dates: [] };
+      const arr = modalEl._state.dates;
+      if (!arr.some(x => x.d === d)) arr.push({ d, start: "10:00", end: "16:00", tz: "America/New_York" });
+      renderDatesList(modalEl);
+    };
+    addBtn.addEventListener("click", addBtn._handler);
+  }
+
+  document.getElementById("x-verify")?.addEventListener("click", onVerifyAddress);
+  async function onVerifyAddress(){
+    const addr = (document.getElementById("x-address")?.value || "").trim();
+    if (!addr) return setMStatus("Enter an address to verify.", "error");
+    setMStatus("Verifying address…");
+    const geo = await geocodeAddress(addr);
+    if (!geo) return setMStatus("Could not find that address.", "error");
+    document.getElementById("x-lat").value = geo.lat.toFixed(6);
+    document.getElementById("x-lng").value = geo.lng.toFixed(6);
+    const city = geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.hamlet || geo.address?.municipality || null;
+    const state = inferStateCode(geo.address);
+    setMStatus(`Address verified ✓${city||state?` (${city||""} ${state||""})`:""}`, "success");
+  }
+
+  document.getElementById("x-submit")?.addEventListener("click", onSubmit);
+  async function onSubmit(){
+    const name = (document.getElementById("x-name")?.value || "").trim();
+    if (!name) return setMStatus("Expo name is required", "error");
+
+    // geocode if lat/lng missing
+    const latEl = document.getElementById("x-lat");
+    const lngEl = document.getElementById("x-lng");
+    if ((!latEl.value || !lngEl.value) && document.getElementById("x-address")?.value) {
+      setMStatus("Finding location from address…");
+      const geo = await geocodeAddress(document.getElementById("x-address").value);
+      if (!geo) return setMStatus("Could not resolve that address.", "error");
+      latEl.value = geo.lat.toFixed(6);
+      lngEl.value = geo.lng.toFixed(6);
+    }
 
     setMStatus("Submitting…");
+    const rc = await reverseOrNull(latEl.value, lngEl.value);
+    const city = rc?.city || null;
+    const state = rc?.state || null;
 
     const expoPayload = {
       name,
-      website: (els.m.website.value || null),
-      description: (els.m.desc.value || null),
-      venue_name: (els.m.venue.value || null),
-      address: (els.m.address.value || null),
-      lat: els.m.lat.value ? parseFloat(els.m.lat.value) : null,
-      lng: els.m.lng.value ? parseFloat(els.m.lng.value) : null,
-      approved: false,
+      website: (document.getElementById("x-website")?.value || null),
+      description: (document.getElementById("x-description")?.value || null),
+      venue_name: (document.getElementById("x-venue")?.value || null),
+      address: (document.getElementById("x-address")?.value || null),
+      city, state,
+      lat: latEl.value ? parseFloat(latEl.value) : null,
+      lng: lngEl.value ? parseFloat(lngEl.value) : null,
+      approved: false
     };
+
     const { data: ins, error: insErr } = await supabase.from("expos").insert(expoPayload).select("id").single();
-    if (insErr || !ins?.id) { console.error("❌ expo insert failed:", insErr); setMStatus("Create failed"); return; }
+    if (insErr || !ins?.id) { console.error("❌ expo insert failed:", insErr); return setMStatus("Create failed", "error"); }
     const expoId = ins.id;
 
-    const file = els.m.hero?.files?.[0];
+    // Upload hero
+    const hero = document.getElementById("x-hero");
+    const file = hero?.files?.[0];
     if (file) {
       const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
       const path = `expos/${expoId}/hero.${ext}`;
       const { error: upErr } = await supabase.storage.from("expo-images").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
-      if (upErr) { console.warn("⚠️ hero upload failed:", upErr); }
-      else {
+      if (!upErr) {
         const { data: pub } = await supabase.storage.from("expo-images").getPublicUrl(path);
         const url = pub?.publicUrl || null;
         if (url) await supabase.from("expos").update({ hero_image: url }).eq("id", expoId);
       }
     }
 
-    const ordinal = parseInt(els.m.ordinal.value || "2", 10);
-    const startT = els.m.start.value || "10:00";
-    const endT = els.m.end.value || "16:00";
-    const tz = els.m.tz.value || "America/New_York";
-    const rows = [els.m.daySat.checked ? 6 : null, els.m.daySun.checked ? 0 : null]
-      .filter(v => v !== null)
-      .map(d => ({ expo_id: expoId, ordinal, day_of_week: d, start_time: startT, end_time: endT, timezone: tz, active: true }));
-    if (rows.length) {
+    // Branch: specific vs recurring
+    const isSpecific = document.getElementById("x-specific")?.checked === true;
+    if (isSpecific) {
+      const modalEl = document.getElementById("expoModal");
+      const rows = (modalEl._state?.dates || []).map(x => ({
+        expo_id: expoId,
+        event_date: x.d,
+        start_time: x.start || "10:00",
+        end_time: x.end || "16:00",
+        timezone: x.tz || "America/New_York"
+      }));
+      if (!rows.length) return setMStatus("Add at least one date.", "error");
+      const { error: dErr } = await supabase.from("expo_calendar_dates").insert(rows);
+      if (dErr) { console.warn("⚠️ date insert failed:", dErr); }
+    } else {
+      const days = [
+        document.getElementById("x-day-sat")?.checked ? 6 : null,
+        document.getElementById("x-day-sun")?.checked ? 0 : null
+      ].filter(v => v !== null);
+      if (!days.length) return setMStatus("Pick Saturday and/or Sunday", "error");
+      const ordinal = parseInt(document.getElementById("x-ordinal")?.value || "2", 10);
+      const startT = document.getElementById("x-start")?.value || "10:00";
+      const endT = document.getElementById("x-end")?.value || "16:00";
+      const tz = document.getElementById("x-tz")?.value || "America/New_York";
+      const validFrom = document.getElementById("x-valid-from")?.value || null;
+      const validTo = document.getElementById("x-valid-to")?.value || null;
+      const rows = days.map(d => ({
+        expo_id: expoId, ordinal, day_of_week: d, start_time: startT, end_time: endT, timezone: tz, active: true,
+        valid_from: validFrom, valid_to: validTo
+      }));
       const { error: schedErr } = await supabase.from("expo_schedules").insert(rows);
       if (schedErr) console.warn("⚠️ schedule insert failed:", schedErr);
     }
 
     setMStatus("Submitted! Pending approval.", "success");
-    setTimeout(() => { setMStatus(""); closeModal(); refresh(); }, 700);
+    setTimeout(() => {
+      if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(document.getElementById("expoModal")).hide();
+      else { const m = document.getElementById("expoModal"); m.classList.remove("show"); m.style.display="none"; m.setAttribute("aria-hidden","true"); }
+    }, 700);
   }
+}
 
-  function setMStatus(msg, kind){
-    const node = document.getElementById("x-status");
-    if (node) {
-      node.className = `small ${kind==="error"?"text-danger":kind==="success"?"text-success":"text-muted"}`;
-      node.textContent = msg || "";
-    }
+/* --------------------------- Specific Dates UI --------------------------- */
+function renderDatesList(modalEl){
+  const list = document.getElementById("x-dates-list");
+  if (!list) return;
+  const arr = (modalEl._state && Array.isArray(modalEl._state.dates)) ? modalEl._state.dates : [];
+  list.innerHTML = "";
+  if (!arr.length) {
+    list.innerHTML = `<div class="list-group-item text-muted small">No dates added yet.</div>`;
+    return;
   }
+  arr.sort((a,b)=>a.d.localeCompare(b.d));
+  arr.forEach((row, idx) => {
+    const item = document.createElement("div");
+    item.className = "list-group-item";
+    item.innerHTML = `
+      <div class="row g-2 align-items-center">
+        <div class="col-md-3"><strong>${row.d}</strong></div>
+        <div class="col-md-3"><input type="time" class="form-control form-control-sm" data-role="sd-start" data-ix="${idx}" value="${row.start}"></div>
+        <div class="col-md-3"><input type="time" class="form-control form-control-sm" data-role="sd-end" data-ix="${idx}" value="${row.end}"></div>
+        <div class="col-md-2">
+          <select class="form-select form-select-sm" data-role="sd-tz" data-ix="${idx}">
+            <option ${row.tz==='America/New_York'?'selected':''} value="America/New_York">America/New_York</option>
+            <option ${row.tz==='America/Chicago'?'selected':''} value="America/Chicago">America/Chicago</option>
+            <option ${row.tz==='America/Denver'?'selected':''} value="America/Denver">America/Denver</option>
+            <option ${row.tz==='America/Los_Angeles'?'selected':''} value="America/Los_Angeles">America/Los_Angeles</option>
+          </select>
+        </div>
+        <div class="col-md-1 text-end">
+          <button class="btn btn-sm btn-outline-danger" data-role="sd-remove" data-ix="${idx}">Remove</button>
+        </div>
+      </div>`;
+    list.appendChild(item);
+  });
+  list.querySelectorAll("[data-role='sd-start']").forEach(inp => {
+    inp.addEventListener("change", (e)=>{
+      const ix = parseInt(e.target.getAttribute("data-ix"),10);
+      modalEl._state.dates[ix].start = e.target.value || "10:00";
+    });
+  });
+  list.querySelectorAll("[data-role='sd-end']").forEach(inp => {
+    inp.addEventListener("change", (e)=>{
+      const ix = parseInt(e.target.getAttribute("data-ix"),10);
+      modalEl._state.dates[ix].end = e.target.value || "16:00";
+    });
+  });
+  list.querySelectorAll("[data-role='sd-tz']").forEach(sel => {
+    sel.addEventListener("change", (e)=>{
+      const ix = parseInt(e.target.getAttribute("data-ix"),10);
+      modalEl._state.dates[ix].tz = e.target.value || "America/New_York";
+    });
+  });
+  list.querySelectorAll("[data-role='sd-remove']").forEach(btn => {
+    btn.addEventListener("click", (e)=>{
+      const ix = parseInt(e.target.getAttribute("data-ix"),10);
+      modalEl._state.dates.splice(ix,1);
+      renderDatesList(modalEl);
+    });
+  });
+}
 
-  function closeModal(){
-    const modalEl = document.getElementById("expoModal");
-    if (!modalEl) return;
-    if (window.bootstrap) {
-      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-      modal.hide();
-    } else {
-      modalEl.classList.remove("show");
-      modalEl.style.display = "none";
-      modalEl.setAttribute("aria-hidden","true");
-    }
-  }
-
-  async function refresh() {
-    setStatus("");
-    if (__layer) __layer.clearLayers();
-    if (els.list) els.list.innerHTML = "";
-
-    const st = els.state ? els.state.value : "";
-    const qtext = (els.search?.value || "").trim();
-
-    let q = supabase.from("expos").select("*").eq("approved", true);
-    if (st) q = q.eq("state", st);
-    if (qtext.length >= 2) {
-      const like = ilike(qtext);
-      q = q.or([`name.ilike.${like}`,`description.ilike.${like}`,`venue_name.ilike.${like}`,`address.ilike.${like}`,`city.ilike.${like}`].join(","));
-    }
-    const { data: expos, error } = await q.order("name", { ascending: true });
-    if (error) { console.error("❌ expos fetch failed:", error); setStatus("Failed to load expos."); return; }
-
-    const ids = expos?.map(e => e.id) || [];
-    let schedByExpo = {};
-    if (ids.length) {
-      const { data: schedules } = await supabase
-        .from("expo_schedules").select("expo_id, ordinal, day_of_week, start_time, end_time, timezone, active")
-        .in("expo_id", ids).eq("active", true);
-      schedByExpo = groupBy(schedules || [], r => r.expo_id);
-    }
-
-    const bounds = window.L && __map ? L.latLngBounds() : null;
-    (expos || []).forEach(expo => {
-      const hero = expo.hero_image || "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
-      const occ = nextOccurrences(schedByExpo[expo.id] || [], 6);
-      const occText = occ.length ? occ.map(o => o.label).slice(0,2).join(" • ") : "Schedule: see site";
-
-      if (__layer && window.L && isFiniteNum(expo.lat) && isFiniteNum(expo.lng)) {
-        const m = L.marker([expo.lat, expo.lng]).addTo(__layer);
-        bounds && bounds.extend([expo.lat, expo.lng]);
-        m.bindPopup(`<div style="min-width:220px"><div class="fw-semibold">${escapeHTML(expo.name || "Expo")}</div><div class="small text-muted">${occText}</div>${expo.website ? `<div class="small"><a href="${escapeAttr(expo.website)}" target="_blank" rel="noopener">Website</a></div>` : ""}</div>`);
-      }
-
-      const li = document.createElement("button");
-      li.type = "button";
-      li.className = "list-group-item list-group-item-action d-flex gap-2";
-      li.innerHTML = `
-        <img src="${escapeAttr(hero)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;outline:1px solid rgba(0,0,0,0.08)">
-        <div class="flex-grow-1 text-start">
-          <div class="d-flex justify-content-between align-items-start">
-            <div class="fw-semibold">${escapeHTML(expo.name || "Expo")}</div>
-            ${expo.website ? `<a class="small" href="${escapeAttr(expo.website)}" target="_blank" rel="noopener">Website</a>` : ""}
-          </div>
-          <div class="small text-muted">${occText}</div>
-          ${expo.venue_name ? `<div class="small">${escapeHTML(expo.venue_name)}</div>` : ""}
-          ${(expo.city || expo.state) ? `<div class="small">${escapeHTML(expo.city || "")} ${escapeHTML(expo.state || "")}</div>` : ""}
-        </div>`;
-      li.addEventListener("click", () => {
-        if (__map && isFiniteNum(expo.lat) && isFiniteNum(expo.lng)) __map.setView([expo.lat, expo.lng], 12);
+/* ------------------------------ Utilities ------------------------------- */
+function setMStatus(msg, type){
+  const el = document.getElementById("x-status");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "small " + (type==="error" ? "text-danger" : type==="success" ? "text-success" : "text-muted");
+}
+function clearExpoForm(){
+  const ids = ["x-name","x-website","x-description","x-venue","x-address","x-lat","x-lng","x-date"];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  const t = ["x-start","x-end"]; t.forEach(id => { const el = document.getElementById(id); if (el) el.value = (id==="x-start"?"10:00":"16:00"); });
+  const dl = document.getElementById("x-dates-list"); if (dl) dl.innerHTML = "";
+}
+function safe(s){
+  return String(s || "").replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
+  });
+}
+function debounce(fn, ms){ let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null,args), ms); }; }
+function iso(d){ return d.toISOString().slice(0,10); }
+function monthRange(d){
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const end = new Date(d.getFullYear(), d.getMonth()+1, 0);
+  return { start, end };
+}
+function matchesSearch(expo, q){
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return [expo.name, expo.city, expo.state, expo.venue_name].filter(Boolean).some(v => String(v).toLowerCase().includes(s));
+}
+function formatTimeRange(start, end, tz){
+  if (!start || !end) return "";
+  const tzTag = (tz && tz.includes("/")) ? tz.split("/")[1] : (tz || "");
+  return `${start}–${end} ${tzTag}`;
+}
+function nthDowOfMonth(year, month, dow, ordinal){
+  const first = new Date(year, month, 1);
+  const shift = (dow - first.getDay() + 7) % 7;
+  const day = 1 + shift + (ordinal-1)*7;
+  const d = new Date(year, month, day);
+  if (d.getMonth() !== month) return null;
+  return d;
+}
+function expandRecurring(rules, start, end){
+  const out = [];
+  const sY = start.getFullYear(), sM = start.getMonth();
+  const eY = end.getFullYear(), eM = end.getMonth();
+  let y = sY, m = sM;
+  while (y < eY || (y === eY && m <= eM)) {
+    rules.forEach(r => {
+      const ord = parseInt(r.ordinal, 10);
+      const dow = parseInt(r.day_of_week, 10);
+      const dt = nthDowOfMonth(y, m, dow, ord);
+      if (!dt) return;
+      const dStr = dt.toISOString().slice(0,10);
+      if (r.valid_from && dStr < r.valid_from) return;
+      if (r.valid_to && dStr > r.valid_to) return;
+      out.push({
+        date: dStr,
+        title: r.expos?.name || "Expo",
+        time: formatTimeRange(r.start_time, r.end_time, r.timezone),
+        city: r.expos?.city, state: r.expos?.state, venue: r.expos?.venue_name,
+        expo_id: r.expo_id
       });
-      els.list?.appendChild(li);
     });
-
-    if (__map && bounds && bounds.isValid()) {
-      __map.fitBounds(bounds.pad(0.2));
-    }
+    m++; if (m>11){ m=0; y++; }
   }
+  return out.filter(x => x.date >= iso(start) && x.date <= iso(end));
 }
 
-/* ------------------------- MAP INIT & RETRY LOGIC ------------------------ */
-function initMainMap(els){
-  if (__map || !window.L || !els?.map) return;
-  const center = [39.82, -98.57];
-  __map = L.map(els.map).setView(center, 4);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap"
-  }).addTo(__map);
-  __layer = L.layerGroup().addTo(__map);
-  setTimeout(() => __map.invalidateSize(), 250);
-  window.addEventListener("resize", () => __map && __map.invalidateSize());
-  console.log("🗺️ Map initialized");
+/* ------------------------ Dynamic CDN loaders --------------------------- */
+let __fcLoading, __leafletLoading;
+function loadScript(src){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src; s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error("Failed to load " + src));
+    document.head.appendChild(s);
+  });
 }
-
-function scheduleMapRetry(els){
-  if (__mapRetry) return;
-  let tries = 0;
-  __mapRetry = setInterval(() => {
-    if (__map) { clearInterval(__mapRetry); __mapRetry = null; return; }
-    if (window.L) {
-      initMainMap(els);
-      if (__map) { clearInterval(__mapRetry); __mapRetry = null; return; }
-    }
-    if ((tries += 1) > 120) { // ~30s
-      console.warn("⚠️ Map init timeout");
-      clearInterval(__mapRetry);
-      __mapRetry = null;
-    }
-  }, 250);
+function loadCSS(href){
+  return new Promise((resolve, reject) => {
+    const l = document.createElement("link");
+    l.rel = "stylesheet"; l.href = href;
+    l.onload = () => resolve(true);
+    l.onerror = () => reject(new Error("Failed to load " + href));
+    document.head.appendChild(l);
+  });
 }
-
-/* ------------------------------- UTILITIES ------------------------------- */
-function setStatus(msg){ const el=document.getElementById("status"); if (el) el.textContent = msg || ""; }
-function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
-function ilike(s){ return `%${String(s).replace(/[%_]/g, m => "\\"+m)}%`; }
-function escapeHTML(s){ return String(s||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function escapeAttr(s){ return escapeHTML(s); }
-function groupBy(arr, fn){ return (arr||[]).reduce((m,x)=>{ const k=fn(x); (m[k]=m[k]||[]).push(x); return m; },{}); }
-function isFiniteNum(v){ return typeof v==="number" && Number.isFinite(v); }
-function nextOccurrences(schedules, months){
-  const out=[]; const now=new Date();
-  for(let i=0;i<months;i++){
-    const y=now.getFullYear(); const m=now.getMonth()+i;
-    (schedules||[]).forEach(s=>{
-      const dt=nthDowOfMonth(y,m,s.ordinal,s.day_of_week);
-      if(!dt) return;
-      const label=formatLabel(dt,s.start_time,s.end_time);
-      out.push({date:dt,label});
-    });
+async function ensureFullCalendar(){
+  if (window.FullCalendar) return true;
+  if (!__fcLoading) {
+    __fcLoading = (async () => {
+      try { await loadCSS("https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css"); } catch {}
+      await loadScript("https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js");
+      await loadScript("https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js");
+      return true;
+    })();
   }
-  return out.sort((a,b)=>a.date-b.date);
+  try { await __fcLoading; } catch {}
+  return !!window.FullCalendar;
 }
-function nthDowOfMonth(year, monthIndex, ordinal, dow){
-  let count=0;
-  for(let day=1; day<=31; day++){
-    const dt=new Date(year,monthIndex,day);
-    if(dt.getMonth()!==monthIndex) break;
-    if(dt.getDay()===dow){ count++; if(count===ordinal) return dt; }
+async function ensureLeaflet(){
+  if (window.L) return true;
+  if (!__leafletLoading) {
+    __leafletLoading = (async () => {
+      try { await loadCSS("https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"); } catch {}
+      await loadScript("https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js");
+      return true;
+    })();
   }
-  return null;
-}
-function formatLabel(dt,start,end){
-  const d=dt.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
-  let t=d; if(start) t+=` ${start}`; if(end) t+=`–${end}`; return t;
+  try { await __leafletLoading; } catch {}
+  return !!window.L;
 }
 
-/* ------------------------------- GEOCODING ------------------------------- */
+/* ------------------------------ Geocoding ------------------------------ */
 async function geocodeAddress(q){
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=${encodeURIComponent(q)}`;
     const res = await fetch(url, { headers: { "Accept": "application/json" } });
     if (!res.ok) return null;
     const data = await res.json();
@@ -573,9 +709,52 @@ async function geocodeAddress(q){
     const hit = data[0];
     const lat = parseFloat(hit.lat), lng = parseFloat(hit.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng, display_name: hit.display_name };
+    return { lat, lng, address: hit.address || {}, display_name: hit.display_name };
   } catch(e){
     console.warn("⚠️ geocode error:", e);
     return null;
   }
+}
+async function reverseOrNull(lat, lng){
+  try {
+    if (!lat || !lng) return null;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&addressdetails=1`;
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data.address || {};
+    const city = addr.city || addr.town || addr.village || addr.hamlet || addr.municipality || null;
+    const state = inferStateCode(addr);
+    return { city, state };
+  } catch(e){
+    return null;
+  }
+}
+const US_ABBR = {
+  "alabama":"AL","alaska":"AK","arizona":"AZ","arkansas":"AR","california":"CA","colorado":"CO","connecticut":"CT","delaware":"DE",
+  "district of columbia":"DC","florida":"FL","georgia":"GA","hawaii":"HI","idaho":"ID","illinois":"IL","indiana":"IN","iowa":"IA",
+  "kansas":"KS","kentucky":"KY","louisiana":"LA","maine":"ME","maryland":"MD","massachusetts":"MA","michigan":"MI","minnesota":"MN",
+  "mississippi":"MS","missouri":"MO","montana":"MT","nebraska":"NE","nevada":"NV","new hampshire":"NH","new jersey":"NJ",
+  "new mexico":"NM","new york":"NY","north carolina":"NC","north dakota":"ND","ohio":"OH","oklahoma":"OK","oregon":"OR",
+  "pennsylvania":"PA","rhode island":"RI","south carolina":"SC","south dakota":"SD","tennessee":"TN","texas":"TX","utah":"UT",
+  "vermont":"VT","virginia":"VA","washington":"WA","west virginia":"WV","wisconsin":"WI","wyoming":"WY"
+};
+function normalizeState(s){
+  if (!s) return "";
+  const t = String(s).trim();
+  if (/^[A-Za-z]{2}$/.test(t)) return t.toUpperCase();
+  const ab = US_ABBR[t.toLowerCase()];
+  return ab || t.toUpperCase();
+}
+function inferStateCode(addr){
+  if (!addr) return null;
+  if (addr.state_code && /^[A-Za-z]{2}$/.test(addr.state_code)) return addr.state_code.toUpperCase();
+  for (const k of Object.keys(addr)) {
+    if (k.startsWith("ISO3166-2") && typeof addr[k] === "string") {
+      const m = addr[k].match(/US-([A-Za-z]{2})/i);
+      if (m) return m[1].toUpperCase();
+    }
+  }
+  if (addr.state && US_ABBR[addr.state.toLowerCase()]) return US_ABBR[addr.state.toLowerCase()];
+  return null;
 }
