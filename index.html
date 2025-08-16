@@ -1,258 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>7th Leg</title>
+
+  <!-- Bootstrap & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Site styles -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <link href="assets/css/index_landing.css" rel="stylesheet">
+
   <style>
-    .product-scroll {
-      display: flex;
-      gap: 1rem;
-      overflow-x: auto;
-      scroll-behavior: smooth;
-      white-space: nowrap;
-      padding-bottom: 1rem;
-    }
-
-    .product-card {
-      flex: 0 0 auto;
-      width: 250px;
-      height: 100%;
-      /* ensures consistent card height */
-      display: flex;
-      flex-direction: column;
-    }
-
-    .product-card img {
-      height: 200px;
-      object-fit: cover;
-      background: #f8f9fa;
-    }
-
-    .product-card .card-body {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      height: 120px;
-      /* uniform content area */
-    }
+    /* Ensure header/footer placeholders reserve space smoothly */
+    #header, #footer { min-height: 1px; }
   </style>
 </head>
+<body class="bg-light">
+  <div id="header" data-include="/communityhub/layout/header.html"></div>
 
-<body>
-  <div id="header"></div>
-
-  <div class="hero-section position-relative text-light text-center">
-    <video autoplay muted loop playsinline class="w-100 h-100 position-absolute top-0 start-0 object-fit-cover"
-      style="z-index:-1;">
-      <source src="https://ugdszfbhvpqomozthuoy.supabase.co/storage/v1/object/public/videos/background1.mp4"
-        type="video/mp4">
-      Your browser does not support the video tag.
-    </video>
-    <div class="position-absolute top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.4); z-index:-1;"></div>
-    <div class="container py-5">
-      <img src="assets/images/logo.png" alt="7th Leg Logo" class="mb-3" style="max-height:120px;">
-      <h1>Welcome to 7th Leg</h1>
-      <p>Giving keepers a leg up — connect, share, and discover new species</p>
-      <a href="/communityhub/hub.html"class="btn btn-success">The Hub</a></li>
-    </div>
-  </div>
-
-
-
- <!-- Community Hub Section -->
-  <div id="community" class="py-5 bg-white">
-    <div class="container text-center">
-      <h2 class="mb-4">Community Hub</h2>
-      <div class="row g-4">
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <h3 id="stat-species">0</h3>
-              <p class="mb-0">Species Tracked</p>
-            </div>
+  <!-- HERO -->
+  <div class="container py-4 py-md-5">
+    <div class="hero-wrap p-4 p-md-5">
+      <div class="row align-items-center hero-split g-4">
+        <div class="col-md-6">
+          <span class="badge badge-soft rounded-pill mb-3">Giving keepers a leg up</span>
+          <h1 class="display-5 fw-bold mb-3">Track, trade, and discover your next favorite species</h1>
+          <p class="lead text-white-50 mb-4">A home for invert keepers: shared species lists, photos, stores, and expos — all in one place.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <a href="/communityhub/hub.html" class="btn btn-success btn-lg">
+              <i class="bi bi-compass"></i> Enter the Hub
+            </a>
+            <a href="/login.html" class="btn btn-outline-light btn-lg">
+              <i class="bi bi-box-arrow-in-right"></i> Log in / Create account
+            </a>
+          </div>
+          <div class="d-flex gap-3 mt-4 text-white-50 small">
+            <div><i class="bi bi-shield-check me-1"></i> Supabase Auth</div>
+            <div><i class="bi bi-cloud-arrow-up me-1"></i> Realtime-ready</div>
+            <div><i class="bi bi-geo-alt me-1"></i> Expo tracker</div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <h3 id="stat-photos">0</h3>
-              <p class="mb-0">Photos Uploaded</p>
-            </div>
+        <div class="col-md-6">
+          <div class="ratio ratio-16x9 rounded-4 glass overflow-hidden shadow-lg">
+            <video autoplay muted loop playsinline class="w-100 h-100">
+              <source src="https://ugdszfbhvpqomozthuoy.supabase.co/storage/v1/object/public/videos/background1.mp4" type="video/mp4">
+            </video>
           </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <h3 id="stat-users">0</h3>
-              <p class="mb-0">Active Users</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <h3 id="stat-badges">0</h3>
-              <p class="mb-0">Badges Earned</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-5">
-        <h4 class="mb-3">Coming Soon</h4>
-        <p class="text-muted">
-          Watch for <strong>New Trades</strong> and <strong>Auctions</strong> from our keepers — arriving soon!
-        </p>
-      </div>
-    </div>
-  </div>
-
-
-
-  <div style="height: 80px;"></div>
-  <!-- About Us Section -->
-  <div class="row justify-content-center">
-    <!-- Left Card: About Me -->
-    <div class="col-md-4 mx-md-4 mb-4">
-      <div class="card h-100 shadow-sm text-start p-2">
-        <div class="card-body py-2 fs-6">
-          <h4 class="text-center mb-3">About Us</h4>
-          <p>
-            What started as a simple shop for insect-keeping supplies has grown into something much bigger.
-            When I launched this site, my main goal was to share the products I use and trust. But as I looked
-            around the hobby, I noticed a problem: there wasn’t a central place for keepers to track their species
-            lists and easily share that information with others.
-          </p>
-          <p>
-            So I built one. Today, our site is more than just a storefront — it’s a place for invert keepers
-            to connect, learn, and share.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Right Card: Features -->
-    <div class="col-md-4 mx-md-4 mb-4">
-      <div class="card h-100 shadow-sm text-start p-2">
-        <div class="card-body py-2 fs-5">
-          <h4 class="text-center mb-3">How This Works</h4>
-          <ul class="mb-0">
-            <li>Track your <strong>collections and wish lists</strong></li>
-            <li>Create and share a <strong>shareable species list</strong></li>
-            <li>Browse and add <strong>photos & care knowledge</strong></li>
-            <li>Join a network of passionate keepers</li>
-          </ul>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- STATS -->
+  <div class="container pb-4">
+    <div class="row g-3">
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-bug"></i></div>
+            <div>
+              <div id="stat-species" class="display-6 mb-0">0</div>
+              <div class="text-muted small">Species Tracked</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-images"></i></div>
+            <div>
+              <div id="stat-photos" class="display-6 mb-0">0</div>
+              <div class="text-muted small">Photos Uploaded</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-people"></i></div>
+            <div>
+              <div id="stat-users" class="display-6 mb-0">0</div>
+              <div class="text-muted small">Members</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-award"></i></div>
+            <div>
+              <div id="stat-badges" class="display-6 mb-0">0</div>
+              <div class="text-muted small">Badges Earned</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-  <!-- Products Section -->
-  <div id="products" class="container py-5">
-    <h2 class="text-center mb-4">7th Leg Products</h2>
-    <div id="product-list" class="product-scroll">
-      <p class="text-center">Loading products...</p>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-shop"></i></div>
+            <div>
+              <div id="stat-stores" class="display-6 mb-0">0</div>
+              <div class="text-muted small">Stores</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-basket2"></i></div>
+            <div>
+              <div id="stat-listings" class="display-6 mb-0">0</div>
+              <div class="text-muted small">Active Listings</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-geo-alt"></i></div>
+            <div>
+              <div id="stat-expos" class="display-6 mb-0">0</div>
+              <div class="text-muted small">Approved Expos</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="icon-lg"><i class="bi bi-lightning"></i></div>
+            <div>
+              <div class="display-6 mb-0"><span id="stat-auctrade">0</span></div>
+              <div class="text-muted small">Auctions & Trades</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div id="footer"></div>
+  <!-- FEATURES -->
+  <div class="container py-4 py-md-5">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="mb-2"><i class="bi bi-clipboard-check me-2"></i><span class="fw-semibold">Species Lists</span></div>
+            <p class="mb-0 text-muted">Track your collection & wish list, and share a public profile for easy trades.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="mb-2"><i class="bi bi-shop-window me-2"></i><span class="fw-semibold">Market</span></div>
+            <p class="mb-0 text-muted">Follow stores and browse live insects & dry goods from trusted keepers.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="mb-2"><i class="bi bi-calendar-event me-2"></i><span class="fw-semibold">Expo Tracker</span></div>
+            <p class="mb-0 text-muted">Find expos near you and see which vendors will be there.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
+  <!-- MARKET PREVIEW -->
+  <div class="container pb-5">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h4 class="mb-0">From the Market</h4>
+      <a href="/communityhub/hub.html#market" class="btn btn-sm btn-outline-secondary">Open Market</a>
+    </div>
+    <div id="market-list" class="product-scroll"></div>
+  </div>
+
+  <!-- ABOUT -->
+  <div class="container pb-5">
+    <div class="row g-4">
+      <div class="col-md-6">
+        <div class="card h-100 shadow-sm p-3">
+          <div class="card-body">
+            <h4 class="mb-3">About Us</h4>
+            <p>What started as a simple shop for insect-keeping supplies has grown into something much bigger. We noticed there wasn’t a central place for keepers to track species and connect. So we built one.</p>
+            <p>Today, 7th Leg is more than a storefront — it’s a place for invert keepers to connect, learn, and share.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card h-100 shadow-sm p-3">
+          <div class="card-body">
+            <h4 class="mb-3">How It Works</h4>
+            <ul class="mb-0">
+              <li>Track your <strong>collections and wish lists</strong></li>
+              <li>Create and share a <strong>public species list</strong></li>
+              <li>Browse <strong>photos</strong> & care knowledge</li>
+              <li>Find <strong>expos</strong> and vendors near you</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer" data-include="/communityhub/layout/footer.html"></div>
+
+  <!-- JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/config.js"></script>
   <script src="assets/js/include.js"></script>
   <script src="assets/js/header-auth.js"></script>
-  <script>
-    async function loadCommunityStats() {
-      try {
-        // Example: count species
-        const { count: speciesCount } = await supabase
-          .from('user_inventories')
-          .select('id', { count: 'exact', head: true });
-        document.getElementById('stat-species').innerText = speciesCount || 0;
-
-        // Example: count photos
-        const { count: photoCount } = await supabase
-          .from('user_inventories')
-          .select('cover_image', { count: 'exact', head: true })
-          .not('cover_image', 'is', null);
-        document.getElementById('stat-photos').innerText = photoCount || 0;
-
-        // Example: count users
-        const { count: userCount } = await supabase
-          .from('profiles')
-          .select('id', { count: 'exact', head: true });
-        document.getElementById('stat-users').innerText = userCount || 0;
-
-        // Example: count badges
-        const { count: badgeCount } = await supabase
-          .from('user_badges')
-          .select('id', { count: 'exact', head: true });
-        document.getElementById('stat-badges').innerText = badgeCount || 0;
-      } catch (err) {
-        console.error("Failed to load stats:", err);
-      }
-    }
-    loadCommunityStats();
-  </script>
-
-  <script>
-    async function loadProducts() {
-      const { data: products, error } = await window.supabase
-        .from('products')
-        .select('*')
-        .eq('status', true);
-
-      const container = document.getElementById('product-list');
-      if (error) {
-        console.error(error);
-        container.innerHTML = '<p class="text-danger">Failed to load products.</p>';
-        return;
-      }
-
-      container.innerHTML = '';
-      if (!products.length) {
-        container.innerHTML = '<p class="text-center">No products available right now.</p>';
-        return;
-      }
-
-      for (let p of products) {
-        let { data: images } = await window.supabase
-          .from('product_images')
-          .select('image_url, is_main')
-          .eq('product_id', p.id)
-          .eq('status', true)
-          .order('is_main', { ascending: false })
-          .order('sort_order', { ascending: true })
-          .limit(1);
-
-        let imageUrl = images && images.length > 0 ? images[0].image_url : 'assets/images/placeholder.png';
-
-        container.innerHTML += `
-          <div class="card product-card shadow">
-            <img src="${imageUrl}" class="card-img-top" alt="${p.name}">
-            <div class="card-body">
-              <h5 class="card-title">${p.name}</h5>
-              <a href="product-view.html?id=${p.id}" class="btn btn-success mt-auto">See More</a>
-            </div>
-          </div>
-        `;
-      }
-
-      setInterval(() => {
-        container.scrollBy({ left: 1, behavior: 'smooth' });
-        if (container.scrollLeft + container.clientWidth >= container.scrollWidth) {
-          container.scrollTo({ left: 0, behavior: 'smooth' });
-        }
-      }, 50);
-    }
-    loadProducts();
-  </script>
+  <script src="assets/js/index_landing.js"></script>
 </body>
-
 </html>
