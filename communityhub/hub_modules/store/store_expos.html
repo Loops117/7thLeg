@@ -1,0 +1,28 @@
+<!-- /communityhub/hub_modules/store/store_expos.html -->
+<div id="store-expos" class="card shadow-sm">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <div class="fw-semibold">Expos you attend</div>
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-sm btn-primary" id="se-register">Register a new expo</button>
+      <div class="text-muted small" id="se-status"></div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label small mb-1">Find an expo</label>
+        <div class="input-group">
+          <input type="text" class="form-control" id="se-search" placeholder="Type at least 2 characters…">
+          <button class="btn btn-outline-secondary" type="button" id="se-clear">Clear</button>
+        </div>
+        <div class="list-group mt-2" id="se-results"></div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small mb-1">Currently attending</label>
+        <div class="list-group" id="se-current">
+          <div class="list-group-item text-muted small">Nothing yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

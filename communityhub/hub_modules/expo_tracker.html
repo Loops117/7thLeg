@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expo Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    html,body{height:100%}
+    #map{height:calc(100vh - 140px);min-height:420px;border-radius:12px}
+    .list-card{ background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.08); }
+    #expo-map { height: 260px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid py-3" id="expo-root">
+    <div class="d-flex align-items-center justify-content-between mb-2" id="expo-header">
+      <h3 class="mb-0">Expo Tracker</h3>
+      <button id="register-expo-btn" class="btn btn-primary" type="button">Register an Expo</button>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12 col-lg-3">
+        <div class="card list-card">
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label mb-1 small">State</label>
+                <select id="state-select" class="form-select form-select-sm">
+                  <option value="">Pick a state</option>
+                  <option value="AL">Alabama (AL)</option>
+                  <option value="AK">Alaska (AK)</option>
+                  <option value="AZ">Arizona (AZ)</option>
+                  <option value="AR">Arkansas (AR)</option>
+                  <option value="CA">California (CA)</option>
+                  <option value="CO">Colorado (CO)</option>
+                  <option value="CT">Connecticut (CT)</option>
+                  <option value="DC">District of Columbia (DC)</option>
+                  <option value="DE">Delaware (DE)</option>
+                  <option value="FL">Florida (FL)</option>
+                  <option value="GA">Georgia (GA)</option>
+                  <option value="HI">Hawaii (HI)</option>
+                  <option value="ID">Idaho (ID)</option>
+                  <option value="IL">Illinois (IL)</option>
+                  <option value="IN">Indiana (IN)</option>
+                  <option value="IA">Iowa (IA)</option>
+                  <option value="KS">Kansas (KS)</option>
+                  <option value="KY">Kentucky (KY)</option>
+                  <option value="LA">Louisiana (LA)</option>
+                  <option value="ME">Maine (ME)</option>
+                  <option value="MD">Maryland (MD)</option>
+                  <option value="MA">Massachusetts (MA)</option>
+                  <option value="MI">Michigan (MI)</option>
+                  <option value="MN">Minnesota (MN)</option>
+                  <option value="MS">Mississippi (MS)</option>
+                  <option value="MO">Missouri (MO)</option>
+                  <option value="MT">Montana (MT)</option>
+                  <option value="NE">Nebraska (NE)</option>
+                  <option value="NV">Nevada (NV)</option>
+                  <option value="NH">New Hampshire (NH)</option>
+                  <option value="NJ">New Jersey (NJ)</option>
+                  <option value="NM">New Mexico (NM)</option>
+                  <option value="NY">New York (NY)</option>
+                  <option value="NC">North Carolina (NC)</option>
+                  <option value="ND">North Dakota (ND)</option>
+                  <option value="OH">Ohio (OH)</option>
+                  <option value="OK">Oklahoma (OK)</option>
+                  <option value="OR">Oregon (OR)</option>
+                  <option value="PA">Pennsylvania (PA)</option>
+                  <option value="RI">Rhode Island (RI)</option>
+                  <option value="SC">South Carolina (SC)</option>
+                  <option value="SD">South Dakota (SD)</option>
+                  <option value="TN">Tennessee (TN)</option>
+                  <option value="TX">Texas (TX)</option>
+                  <option value="UT">Utah (UT)</option>
+                  <option value="VT">Vermont (VT)</option>
+                  <option value="VA">Virginia (VA)</option>
+                  <option value="WA">Washington (WA)</option>
+                  <option value="WV">West Virginia (WV)</option>
+                  <option value="WI">Wisconsin (WI)</option>
+                  <option value="WY">Wyoming (WY)</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <input id="search" type="search" class="form-control form-control-sm" placeholder="Search expos, venue, city…">
+              </div>
+            </div>
+          </div>
+          <div id="status" class="px-3 pb-2 small text-muted"></div>
+          <div id="expo-list" class="list-group list-group-flush"></div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-9">
+        <div id="map" class="w-100"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div class="modal fade" id="expoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Register an Expo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="x-status" class="text-muted small mb-2"></div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Expo Name</label>
+              <input type="text" id="x-name" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Website (optional)</label>
+              <input type="url" id="x-website" class="form-control" placeholder="https://…">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description (optional)</label>
+              <textarea id="x-description" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Venue Name</label>
+              <input type="text" id="x-venue" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Address</label>
+              <input type="text" id="x-address" class="form-control" placeholder="Street, City, State ZIP">
+            </div>
+            <div class="col-12">
+              <div id="expo-map" class="mb-2"></div>
+              <div class="form-text">Drag the marker to set the exact location.</div>
+            </div>
+
+            <input type="hidden" id="x-lat">
+            <input type="hidden" id="x-lng">
+
+            <div class="col-md-8">
+              <label class="form-label">Hero Image (optional)</label>
+              <input type="file" id="x-hero" class="form-control" accept="image/*">
+            </div>
+
+            <div class="col-12"><hr/></div>
+
+            <div class="col-md-4">
+              <label class="form-label">Week</label>
+              <select id="x-ordinal" class="form-select">
+                <option value="1">First</option>
+                <option value="2" selected>Second</option>
+                <option value="3">Third</option>
+                <option value="4">Fourth</option>
+                <option value="5">Fifth</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label d-block">Days</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="x-day-sat" value="6">
+                <label class="form-check-label" for="x-day-sat">Saturday</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="x-day-sun" value="0">
+                <label class="form-check-label" for="x-day-sun">Sunday</label>
+              </div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Opens</label>
+              <input type="time" id="x-start" class="form-control" value="10:00">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Closes</label>
+              <input type="time" id="x-end" class="form-control" value="16:00">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Timezone</label>
+              <select id="x-tz" class="form-select">
+                <option value="America/New_York" selected>America/New_York</option>
+                <option value="America/Chicago">America/Chicago</option>
+                <option value="America/Denver">America/Denver</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="x-submit" class="btn btn-primary">Submit Expo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="./expo_tracker.js"></script>
+  <!-- If your layout doesn't already include Bootstrap JS, uncomment the next line -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script> -->
+</body>
+</html>

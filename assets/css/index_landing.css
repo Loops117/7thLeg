@@ -1,0 +1,41 @@
+/* assets/css/index_landing.css */
+:root{
+  --hero-grad: linear-gradient(135deg, #0f172a 0%, #111827 40%, #0b3b36 100%);
+}
+.hero-wrap{
+  background: var(--hero-grad);
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.hero-wrap .glass{
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(6px);
+}
+.badge-soft{
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.stat-card{
+  border-radius: 14px;
+}
+.stat-card .display-6{
+  font-weight: 700;
+}
+.icon-lg{
+  width: 40px; height: 40px;
+  display: inline-flex; align-items:center; justify-content:center;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+.product-scroll{
+  display:flex; gap:1rem; overflow-x:auto; scroll-behavior:smooth; white-space:nowrap; padding-bottom:.5rem;
+}
+.product-card{ flex:0 0 auto; width:260px; display:flex; flex-direction:column; }
+.product-card img{ height:180px; object-fit:cover; background:#f8f9fa; }
+@media (max-width: 767px){
+  .hero-split{ flex-direction: column; }
+}

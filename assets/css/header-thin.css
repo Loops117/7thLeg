@@ -1,0 +1,21 @@
+/* /assets/css/header-thin.css
+   Forces a compact header across the site (Bootstrap 5.3).
+   Load this AFTER your main styles. */
+
+:root{
+  --sl-navbar-py: .25rem;   /* vertical padding on navbar (top/bottom) */
+  --sl-navlink-py: .25rem;  /* vertical padding on each nav link */
+  --sl-brand-img-h: 180px;   /* logo height */
+}
+
+/* Apply to any Bootstrap navbar that has .navbar-thin */
+.navbar.navbar-thin { --bs-navbar-padding-y: var(--sl-navbar-py); }
+.navbar-thin .nav-link { padding-top: var(--sl-navlink-py); padding-bottom: var(--sl-navlink-py); }
+.navbar-thin .navbar-brand { padding-top: 0; padding-bottom: 0; }
+.navbar-thin .navbar-brand img { height: var(--sl-brand-img-h); max-height: var(--sl-brand-img-h); }
+
+/* Optional: tighten dropdown menu spacing a bit */
+.navbar-thin .dropdown-menu { --bs-dropdown-item-padding-y: .35rem; }
+
+/* If some pages hard-code #header height, override it */
+#header { height: auto !important; min-height: 0; }

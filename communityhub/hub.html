@@ -8,155 +8,37 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
 
   <style>
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-    }
-
-    #header,
-    #footer {
-      width: 100%;
-    }
-
-    #header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      z-index: 3000;
-      /* higher than sidebar & content */
-      background: #fff;
-    }
-
-    #footer {
-      position: relative;
-      z-index: 3200;
-      /* higher than header and sidebar */
-      background: #fff;
-      /* optional, ensures content under it is hidden */
-    }
-
-    body {
-      padding-top: 100px;
-      /* match actual header height */
-    }
+    html, body { margin: 0; padding: 0; }
+    #header, #footer { width: 100%; }
+    #header { position: fixed; top: 0; left: 0; width: 100%; z-index: 3000; background: #fff; }
+    #footer { position: relative; z-index: 3200; background: #fff; }
+    body { padding-top: 100px; }
 
     /* Sidebar defaults */
-    #sidebar-wrapper {
-      width: 240px;
-      background: #f8f9fa;
-      border-right: 1px solid #ddd;
-      transition: transform 0.3s ease;
-      z-index: 2000;
-    }
-
+    #sidebar-wrapper { width: 240px; background: #f8f9fa; border-right: 1px solid #ddd; transition: transform 0.3s ease; z-index: 2000; }
     /* Mobile sidebar */
-    #sidebar-wrapper {
-      position: fixed;
-      top: 100px;
-      /* match header height */
-      left: -240px;
-      height: calc(100% - 100px);
-    }
+    #sidebar-wrapper { position: fixed; top: 100px; left: -240px; height: calc(100% - 100px); }
+    #sidebar-wrapper.open { left: 0; }
 
-    #sidebar-wrapper.open {
-      left: 0;
-    }
-
-    #sidebar-tab {
-      position: fixed;
-      top: 100px;
-      /* match header */
-      left: 0;
-      background: #198754;
-      color: #fff;
-      padding: 8px 12px;
-      border-top-right-radius: 6px;
-      border-bottom-right-radius: 6px;
-      cursor: pointer;
-      z-index: 3100;
-      /* ⬆ above header */
-    }
-
-    #sidebar-wrapper.open+#sidebar-tab {
-      left: 240px;
-    }
+    #sidebar-tab { position: fixed; top: 100px; left: 0; background: #198754; color: #fff; padding: 8px 12px; border-top-right-radius: 6px; border-bottom-right-radius: 6px; cursor: pointer; z-index: 3100; }
+    #sidebar-wrapper.open + #sidebar-tab { left: 240px; }
 
     @media (min-width: 768px) {
-      #sidebar-wrapper {
-        position: fixed;
-        top: 100px;
-        left: 0;
-        width: 240px;
-        height: calc(100% - 100px);
-        overflow-y: auto;
-        transform: none;
-        z-index: 2500;
-      }
-
-      #sidebar-tab {
-        display: none;
-      }
-
-      #hub-main {
-        margin-left: 240px;
-        margin-top: 0;
-      }
+      #sidebar-wrapper { position: fixed; top: 100px; left: 0; width: 240px; height: calc(100% - 100px); overflow-y: auto; transform: none; z-index: 2500; }
+      #sidebar-tab { display: none; }
+      #hub-main { margin-left: 240px; margin-top: 0; }
     }
 
-    #hub-sidebar {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
+    #hub-sidebar { display: flex; flex-direction: column; height: 100%; }
+    #hub-sidebar .nav-link { color: #333; border-radius: 6px; margin-bottom: 0.4rem; padding: 0.6rem 1rem; font-weight: 500; }
+    #hub-sidebar .nav-link:hover { background-color: #e9ecef; color: #000; }
+    #hub-sidebar .nav-link.active { background-color: #198754; color: #fff; }
+    #hub-sidebar .mt-auto { margin-top: auto; }
 
-    #hub-sidebar .nav-link {
-      color: #333;
-      border-radius: 6px;
-      margin-bottom: 0.4rem;
-      padding: 0.6rem 1rem;
-      font-weight: 500;
-    }
-
-    #hub-sidebar .nav-link:hover {
-      background-color: #e9ecef;
-      color: #000;
-    }
-
-    #hub-sidebar .nav-link.active {
-      background-color: #198754;
-      color: #fff;
-    }
-
-    #hub-sidebar .mt-auto {
-      margin-top: auto;
-    }
-
-    #hub-content {
-      padding: 1rem;
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-      min-height: calc(100vh - 160px);
-    }
-
-    @media (min-width: 768px) {
-      #hub-content {
-        padding-left: 2rem;
-        padding-right: 2rem;
-      }
-    }
-
-    @media (min-width: 1200px) {
-      #hub-content {
-        padding-left: 3rem;
-        padding-right: 3rem;
-      }
-    }
+    #hub-content { padding: 1rem; padding-left: 1.5rem; padding-right: 1.5rem; min-height: calc(100vh - 160px); }
+    @media (min-width: 768px) { #hub-content { padding-left: 2rem; padding-right: 2rem; } }
+    @media (min-width: 1200px) { #hub-content { padding-left: 3rem; padding-right: 3rem; } }
   </style>
-
-
-
 </head>
 
 <body>
@@ -169,13 +51,20 @@
         <li class="nav-item"><a class="nav-link active" href="#" data-module="home">🏠 Home</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-module="profile">👤 Profile</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-module="gallery">📸 Gallery</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-module="messages/messages_inbox">📸 Messages</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-module="tracker">📋 Species Tracker</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-module="messages/messages_inbox">📫 Messages</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-module="expo_tracker">📋 Expo Tracker</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-module="auctions_trades">💰 Auctions & Trades</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-module="market">🛒 Market</a></li>
+
+        <!-- NEW: My Store (hidden by default, shown via JS if eligible) -->
+        <li class="nav-item" id="nav-store-item" style="display:none;">
+          <a class="nav-link" href="#" data-module="store/my_store">🏪 My Store</a>
+        </li>
+
         <li class="nav-item"><a class="nav-link" href="#" data-module="reviews">⭐ My Reviews</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-module="userspecies">🧬 My Species</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-module="userwishlist">📝 My Wishlist</a></li>
+
         <!-- Dashboard link at bottom -->
         <li class="nav-item mb-4">
           <a class="nav-link text-primary fw-bold" href="/dashboard.html">📊 Settings</a>
@@ -223,5 +112,4 @@
     });
   </script>
 </body>
-
 </html>
