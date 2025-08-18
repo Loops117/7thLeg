@@ -1,0 +1,94 @@
+<!-- settings.html — Community Hub “Dashboard” module -->
+<div id="settings-root" class="container-fluid px-0">
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <h5 class="mb-0">Dashboard</h5>
+      <small class="text-muted">Manage your account & activity</small>
+    </div>
+    <div class="card-body pt-0">
+      <!-- Tabs -->
+      <ul class="nav nav-tabs mt-3" id="settings-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="acct-tab" data-bs-toggle="tab" data-bs-target="#acct-pane" type="button" role="tab" aria-controls="acct-pane" aria-selected="true">
+            Account Settings
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders-pane" type="button" role="tab" aria-controls="orders-pane" aria-selected="false">
+            My Orders
+          </button>
+        </li>
+      </ul>
+
+      <!-- Tab panes -->
+      <div class="tab-content p-3 border-start border-end border-bottom rounded-bottom">
+        <!-- Account Settings -->
+        <div class="tab-pane fade show active" id="acct-pane" role="tabpanel" aria-labelledby="acct-tab">
+          <form id="acct-form" class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-control" id="acct-fullname" placeholder="Your name">
+            </div>
+
+            <!-- Location (address input + verify) -->
+            <div class="col-md-6">
+              <label class="form-label">Address (for verification)</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="acct-address" placeholder="e.g., 123 Main St, City, ST 12345">
+                <button class="btn btn-outline-primary" type="button" id="acct-verify">Verify</button>
+              </div>
+              <div class="form-text">We’ll store precise lat/lng privately, display only City, ST, and keep the full address for shipping.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Verified City/State (displayed)</label>
+              <input type="text" class="form-control" id="acct-display-location" placeholder="City, ST" readonly>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Verified Full Address (private for shipping)</label>
+              <textarea class="form-control" id="acct-full-address" rows="2" placeholder="Full verified address" readonly></textarea>
+            </div>
+
+            <div class="col-md-3 d-none">
+              <label class="form-label">Latitude</label>
+              <input type="text" class="form-control" id="acct-lat" readonly>
+            </div>
+            <div class="col-md-3 d-none">
+              <label class="form-label">Longitude</label>
+              <input type="text" class="form-control" id="acct-lng" readonly>
+            </div>
+
+            <!-- Avatar -->
+            <div class="col-12">
+              <label class="form-label d-block">Profile Image</label>
+              <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="position-relative">
+                  <div id="acct-avatar" class="rounded-circle bg-light border d-flex align-items-center justify-content-center overflow-hidden" style="width:88px;height:88px;">
+                    <img id="acct-avatar-img" alt="avatar" style="max-width:100%;max-height:100%; display:none;">
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <input class="form-control form-control-sm" type="file" id="acct-avatar-file" accept="image/*">
+                  <button type="button" class="btn btn-outline-primary btn-sm" id="acct-avatar-upload">Upload</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" id="acct-avatar-remove">Remove</button>
+                </div>
+                <div class="text-muted small">PNG/JPG recommended. Stored in <code>profile-images</code>.</div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <button class="btn btn-success" type="submit">Save changes</button>
+              <span id="acct-msg" class="ms-3 small"></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- My Orders (placeholder) -->
+        <div class="tab-pane fade" id="orders-pane" role="tabpanel" aria-labelledby="orders-tab">
+          <div class="text-muted">My Orders will appear here. (Placeholder)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

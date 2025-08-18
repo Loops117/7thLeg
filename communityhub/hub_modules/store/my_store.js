@@ -83,6 +83,29 @@ export async function init(options) {
   }
 
   // 3) Update subtitle
+  // Configure "View public store" link
+  try {
+    const viewBtn = document.getElementById("btn-view-public-store");
+    if (viewBtn && storeId) {
+      const hasSlug = !!(storeRow && storeRow.slug);
+      const url = hasSlug
+        ? `/communityhub/hub.html?module=store/view_store&slug=${encodeURIComponent(storeRow.slug)}`
+        : `/communityhub/hub.html?module=store/view_store&id=${encodeURIComponent(storeId)}`;
+      viewBtn.href = url;
+      viewBtn.classList.remove("disabled");
+      viewBtn.removeAttribute("aria-disabled");
+      viewBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const payload = hasSlug ? { slug: storeRow.slug } : { id: storeId };
+        if (typeof window.loadModule === "function") {
+          window.loadModule("store/view_store", payload);
+        } else {
+          window.location.href = url;
+        }
+      });
+    }
+  } catch (e) { console.warn("view_store link wiring failed:", e); }
+
   if (subtitle) {
     const label = storeRow && storeRow.name
       ? `${storeRow.name} (${storeRow.slug || "no-slug"})`

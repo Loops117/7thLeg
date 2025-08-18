@@ -13,6 +13,7 @@
 
       teardown();
       ensureMarkup();
+      await renderPromptAvatar(supabase);
       wireModal();
       wireComposer(supabase);
       await FEED.init(supabase);
@@ -48,7 +49,7 @@
     card.id = "composer-prompt-card";
     card.className = "card border-0 shadow-sm mb-3";
     card.innerHTML = `<div class="card-body py-2 d-flex align-items-center gap-2">
-        <div class="rounded-circle bg-light-subtle border" style="width:36px;height:36px;"></div>
+        <div id="composer-avatar" class="rounded-circle bg-light-subtle border" style="width:36px;height:36px;"></div>
         <button id="open-bulletin-modal" class="prompt-button flex-grow-1 text-start">Post a bulletin</button>
       </div>`;
     root.prepend(card);
@@ -112,7 +113,7 @@
           <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
             <input type="file" id="composer-image" accept="image/*" class="form-control form-control-sm" style="max-width:260px;">
             <button class="btn btn-sm btn-outline-secondary" id="composer-insert-image" type="button">Add Photo</button>
-            <div class="small text-muted">Images will be resized automatically. HTML allowed; scripts/handlers removed.</div>
+            <div class="text-secondary fw-semibold">Images will be resized automatically. HTML allowed; scripts/handlers removed.</div>
           </div>
         </div>
         <div class="bulletin-footer">
@@ -397,7 +398,7 @@
     async function fetchById(supabase, id){
       const { data, error } = await supabase
         .from("bulletins")
-        .select("id, user_id, message, help, type, review_target_type, review_target_id, rating, created_at, profiles:profiles!bulletins_user_id_fkey(full_name), bulletin_comments(count)")
+        .select("id, user_id, message, help, type, review_target_type, review_target_id, rating, created_at, profiles:profiles!bulletins_user_id_fkey(id,full_name,avatar_url), bulletin_comments(count)")
         .eq("id", id).maybeSingle();
       if (error) { console.warn("fetchById error", error); return null; }
       return data;
@@ -406,7 +407,7 @@
     async function fetchBulletins(supabase, limit, start){
       const { data, error } = await supabase
         .from("bulletins")
-        .select("id, user_id, message, help, type, review_target_type, review_target_id, rating, created_at, profiles:profiles!bulletins_user_id_fkey(full_name), bulletin_comments(count)")
+        .select("id, user_id, message, help, type, review_target_type, review_target_id, rating, created_at, profiles:profiles!bulletins_user_id_fkey(id,full_name,avatar_url), bulletin_comments(count)")
         .order("created_at", { ascending:false })
         .range(start, start + limit - 1);
       if (error) { console.warn("bulletins fetch error", error); return []; }
@@ -444,8 +445,8 @@
       wrap.innerHTML = `
         <div class="card-body">
           <div class="bulletin-meta">
-            <div class="rounded-circle bg-secondary-subtle d-inline-block" style="width:32px;height:32px;"></div>
-            <strong>${escapeHtml(name)}</strong>
+            <div class="bulletin-avatar d-inline-block" style="width:32px;height:32px;"></div>
+            <strong>${profileLinkHtml(b.user_id, name)}</strong>
             ${helpBadge}${reviewBadge}${stars}
             ${reviewOf}
             <span class="text-muted small ms-2">${escapeHtml(when)}</span>
@@ -465,7 +466,16 @@
           <div class="mt-2 d-none" data-role="comments" data-id="${b.id}"></div>
         </div>`;
 
-      if (b.type === "review"){
+      
+      // Render poster avatar
+      try {
+        const av = wrap.querySelector('.bulletin-avatar');
+        if (av) {
+          const url = b?.profiles?.avatar_url || null;
+          av.innerHTML = avatarHtml(url, name, 32);
+        }
+      } catch {}
+    if (b.type === "review"){
         (async() => {
           const target = await resolveReviewTargetName(supabase, b.review_target_type, b.review_target_id);
           const span = wrap.querySelector('[data-role="target-name"]');
@@ -502,7 +512,7 @@
           const now = new Date().toLocaleString();
           const item = document.createElement("div");
           item.className = "border rounded-3 p-2 mb-2";
-          item.innerHTML = `<div class="small text-muted">${now}</div><div>${escapeHtml(msg)}</div>`;
+          item.innerHTML = `<div class="text-secondary fw-semibold">${now}</div><div>${escapeHtml(msg)}</div>`;
           list.appendChild(item);
         }
       });
@@ -520,7 +530,7 @@
                 <div class="border rounded-3 p-2 mb-2">
                   <div class="d-flex align-items-center gap-2 mb-1">
                     <div class="rounded-circle bg-secondary-subtle" style="width:24px;height:24px;"></div>
-                    <strong class="small">${escapeHtml(c.full_name)}</strong>
+                    <strong class="small"><a class="text-decoration-none" href="/communityhub/hub.html?module=profile&id=${encodeURIComponent(c.user_id)}">${escapeHtml(c.full_name)}</a></strong>
                     <span class="small text-muted ms-auto">${escapeHtml(new Date(c.created_at).toLocaleString())}</span>
                   </div>
                   <div>${escapeHtml(c.message)}</div>
@@ -566,29 +576,29 @@
       const wrap = document.createElement("div");
       wrap.className = "card border-0 shadow-sm rounded-4";
       try {
-        const { data } = await supabase.from("store_profiles").select("id, name").order("id",{ascending:false}).limit(12);
+        const { data } = await supabase.from("store_profiles").select("id, name, logo_url").order("id",{ascending:false}).limit(12);
         const items = (data||[]).slice(0,6);
         wrap.innerHTML = `<div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-2"><strong>Stores</strong>
             <a class="small text-decoration-none" href="#" data-role="see-stores">See all</a></div>
           <div class="d-flex flex-wrap gap-3">
             ${items.length?items.map(s=>`<a href="#" data-role="open-store" data-id="${s.id}" class="d-flex align-items-center text-decoration-none">
-              <div class="rounded-circle bg-secondary-subtle me-2" style="width:40px;height:40px;"></div>
+              ${logoHtml(s.logo_url, s.name, 40)}
               <span>${escapeHtml(s.name||"Store")}</span></a>`).join(""):`<div class="text-muted small">No stores yet.</div>`}
           </div></div>`;
         wrap.querySelector('[data-role="see-stores"]')?.addEventListener("click", (e)=>{
           e.preventDefault();
-          try{ if (typeof window.loadModule === "function") loadModule("stores"); else window.location.href="/communityhub/hub.html?module=stores"; }catch{ window.location.href="/communityhub/hub.html?module=stores"; }
+          try{ if (typeof window.loadModule === "function") loadModule("market"); else window.location.href="/communityhub/hub.html?module=market"; }catch{ window.location.href="/communityhub/hub.html?module=market"; }
         });
         wrap.querySelectorAll('[data-role="open-store"]').forEach(a => {
           a.addEventListener("click", (e) => {
             e.preventDefault();
             const id = a.getAttribute("data-id");
             try{
-              if (typeof window.loadModule === "function") loadModule("stores", { id });
-              else window.location.href = `/communityhub/hub.html?module=stores&id=${encodeURIComponent(id)}`;
+              if (typeof window.loadModule === "function") loadModule("store/view_store", { id });
+              else window.location.href = `/communityhub/hub.html?module=store/view_store&id=${encodeURIComponent(id)}`;
             }catch{
-              window.location.href = `/communityhub/hub.html?module=stores&id=${encodeURIComponent(id)}`;
+              window.location.href = `/communityhub/hub.html?module=store/view_store&id=${encodeURIComponent(id)}`;
             }
           });
         });
@@ -611,7 +621,7 @@
           </div></div>`;
         wrap.querySelector('[data-role="see-auctions"]')?.addEventListener("click", (e)=>{
           e.preventDefault();
-          try{ if (typeof window.loadModule === "function") loadModule("auctions"); else window.location.href="/communityhub/hub.html?module=auctions"; }catch{ window.location.href="/communityhub/hub.html?module=auctions"; }
+          try{ if (typeof window.loadModule === "function") loadModule("auctions_trades"); else window.location.href="/communityhub/hub.html?module=auctions_trades"; }catch{ window.location.href="/communityhub/hub.html?module=auctions_trades"; }
         });
         wrap.querySelectorAll("a.open-auction-card").forEach(el=>el.addEventListener("click",(e)=>{
           e.preventDefault(); const id=el.getAttribute("data-auction-id");
@@ -658,7 +668,44 @@
     return { init, prependById };
   })();
 
-  /* ---------------- HELPERS ---------------- */
+  
+  /* ---- Avatar / Logo helpers ---- */
+  function initialsFrom(name){
+    const parts = String(name||"").trim().split(/\s+/).filter(Boolean);
+    const init = parts.slice(0,2).map(w => w[0]?.toUpperCase() || "").join("");
+    return init || "?";
+  }
+  function avatarHtml(url, name, size=32){
+    const initials = initialsFrom(name);
+    if (url){
+      const safe = escapeHtml(url);
+      return `<img src="${safe}" alt="${escapeHtml(name||'')}" class="rounded-circle border" style="width:${size}px;height:${size}px;object-fit:cover;">`;
+    }
+    return `<div class="rounded-circle border bg-light-subtle d-inline-flex align-items-center justify-content-center" style="width:${size}px;height:${size}px;"><span class="text-secondary fw-semibold">${escapeHtml(initials)}</span></div>`;
+  }
+  function logoHtml(url, alt, size=40){
+    if (url){
+      const safe = escapeHtml(url);
+      return `<img src="${safe}" alt="${escapeHtml(alt||'')}" class="rounded border" style="width:${size}px;height:${size}px;object-fit:cover;background:#fff;">`;
+    }
+    return `<div class="rounded border bg-light-subtle" style="width:${size}px;height:${size}px;"></div>`;
+  }
+  function profileLinkHtml(userId, text){
+    const href = `/communityhub/hub.html?module=profile&id=${encodeURIComponent(userId||'')}`;
+    return `<a href="${href}" class="text-decoration-none">${escapeHtml(text||'Profile')}</a>`;
+  }
+
+  async function renderPromptAvatar(supabase){
+    try{
+      const { data:{ user } } = await supabase.auth.getUser();
+      const mount = document.getElementById("composer-avatar");
+      if (!mount) return;
+      if (!user){ mount.innerHTML = avatarHtml(null, ""); return; }
+      const { data: prof } = await supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle();
+      mount.innerHTML = avatarHtml(prof?.avatar_url || null, prof?.full_name || "");
+    }catch(e){ /* ignore */ }
+  }
+/* ---------------- HELPERS ---------------- */
   function escapeHtml(str){ return String(str||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function sanitizeHtml(html){
     try{

@@ -1,5 +1,58 @@
 const supabase = window.supabase;
 
+// ---- helpers ----
+function initialsFrom(name){
+  const parts = String(name||"").trim().split(/\s+/).filter(Boolean);
+  const init = parts.slice(0,2).map(w => (w && w[0] ? w[0].toUpperCase() : "")).join("");
+  return init || "?";
+}
+function avatarHtml(url, name, size=48){
+  if (url){
+    return `<img src="${String(url).replace(/"/g,'&quot;')}" alt="${(name||'').replace(/["&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}" class="rounded-circle border" style="width:${size}px;height:${size}px;object-fit:cover;">`;
+  }
+  const initials = initialsFrom(name);
+  return `<div class="rounded-circle border bg-light-subtle d-inline-flex align-items-center justify-content-center" style="width:${size}px;height:${size}px;"><span class="fw-semibold text-muted">${initials}</span></div>`;
+}
+function profileLink(userId, text){
+  const href = `/communityhub/hub.html?module=profile&id=${encodeURIComponent(userId||'')}`;
+  return `<a class="text-decoration-none" href="${href}">${(text||'Profile').replace(/["&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}</a>`;
+}
+function stars(n){
+  n = Math.max(1, Math.min(5, parseInt(n||0,10)||0));
+  return `<span class="text-warning" aria-label="${n} star rating">${"★".repeat(n)}${"☆".repeat(5-n)}</span>`;
+}
+function sanitizeHtml(html){
+  // allow only a small set of tags: b,strong,i,em,u,br,p,ul,ol,li,a
+  const allowed = { B:1, STRONG:1, I:1, EM:1, U:1, BR:1, P:1, UL:1, OL:1, LI:1, A:1 };
+  const container = document.createElement('div');
+  container.innerHTML = String(html||"");
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
+  const toRemove = [];
+  while (walker.nextNode()){
+    const el = walker.currentNode;
+    if (!allowed[el.tagName]){
+      toRemove.push(el);
+    } else if (el.tagName === 'A'){
+      // keep only safe hrefs
+      const href = el.getAttribute('href') || '';
+      if (!/^(https?:|mailto:)/i.test(href)) {
+        el.removeAttribute('href');
+      } else {
+        el.setAttribute('target','_blank');
+        el.setAttribute('rel','noopener noreferrer');
+      }
+      // strip other attributes
+      [...el.attributes].forEach(a => { if (a.name.toLowerCase() !== 'href' && a.name.toLowerCase() !== 'target' && a.name.toLowerCase() !== 'rel') el.removeAttribute(a.name); });
+    } else {
+      // strip all attributes from non-A tags
+      [...el.attributes].forEach(a => el.removeAttribute(a.name));
+    }
+  }
+  toRemove.forEach(n => n.replaceWith(document.createTextNode(n.textContent)));
+  return container.innerHTML;
+}
+
+
 (async () => {
   console.log("✅ hub profile.js running with window.supabase");
 
@@ -25,7 +78,7 @@ const supabase = window.supabase;
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, role, about_me")
+      .select("full_name, role, about_me, avatar_url")
       .eq("id", uid)
       .single();
 
@@ -44,7 +97,20 @@ const supabase = window.supabase;
 
     profileNameEl.textContent = profile?.full_name || "Unnamed User";
     profileRoleEl.textContent = profile?.role || "Member";
-    profileAboutEl.textContent = profile?.about_me || "No about me yet.";
+    // About Me: render limited HTML
+    profileAboutEl.innerHTML = profile?.about_me ? sanitizeHtml(profile.about_me) : "No about me yet.";
+    // Avatar: show image if available, otherwise hide container
+    (function(){
+      const mount = document.getElementById("profile-avatar");
+      if (!mount) return;
+      if (profile?.avatar_url){
+        mount.innerHTML = avatarHtml(profile.avatar_url, profile.full_name, 48);
+        mount.classList.remove("d-none");
+      } else {
+        mount.classList.add("d-none");
+        mount.innerHTML = "";
+      }
+    })();
 
     // Badges
     const { data: badges } = await supabase
@@ -61,26 +127,88 @@ const supabase = window.supabase;
         </span>`).join("")
       : "<p>No badges</p>";
 
-    // Reviews
-    const { data: reviews } = await supabase
-      .from("reviews")
-      .select("rating, comment, reviewer_id, profiles!reviews_reviewer_id_fkey(full_name)")
-      .eq("reviewed_id", uid);
+    // Reviews (from bulletins: reviews about this user + written by this user)
+    const { data: aboutMe } = await supabase
+      .from("bulletins")
+      .select("id,user_id,message,rating,created_at,profiles:profiles!bulletins_user_id_fkey(id,full_name,avatar_url)")
+      .eq("type","review")
+      .eq("review_target_type","user")
+      .eq("review_target_id", uid)
+      .order("created_at",{ ascending:false });
 
-    if (!reviews?.length) {
-      profileReviewsEl.innerHTML = "<p>No reviews yet.</p>";
+    const { data: myWritten } = await supabase
+      .from("bulletins")
+      .select("id,review_target_type,review_target_id,message,rating,created_at")
+      .eq("type","review")
+      .eq("user_id", uid)
+      .order("created_at",{ ascending:false });
+
+    const recvd = Array.isArray(aboutMe) ? aboutMe : [];
+    if (!recvd.length) {
       profileRatingEl.textContent = "⭐ No reviews yet";
     } else {
-      const avg = reviews.reduce((a, r) => a + r.rating, 0) / reviews.length;
-      profileRatingEl.textContent = "⭐".repeat(Math.round(avg));
-      profileReviewsEl.innerHTML = reviews.map(r =>
-        `<div class="mb-2">
-         <strong>${r.profiles?.full_name || "Anonymous"}:</strong>
-         ${"⭐".repeat(r.rating)}<br>
-         <small class="text-muted">${r.comment}</small>
-       </div>`
-      ).join("");
+      const avg = recvd.reduce((a, r) => a + (r.rating||0), 0) / recvd.length;
+      const rounded = Math.max(1, Math.min(5, Math.round(avg)));
+      profileRatingEl.innerHTML = stars(rounded) + ` <span class="small text-muted">(${recvd.length})</span>`;
     }
+
+    function rowFromAbout(r){
+      const u = r.profiles || {};
+      return `<div class="mb-2 d-flex align-items-start gap-2">
+        <div>${avatarHtml(u.avatar_url, u.full_name, 28)}</div>
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <strong>${profileLink(u.id, u.full_name || "User")}</strong>
+            <span class="small text-muted">${new Date(r.created_at).toLocaleDateString()}</span>
+          </div>
+          <div>${stars(r.rating || 5)}</div>
+          <div class="small text-muted">${(r.message||"").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]))}</div>
+        </div>
+      </div>`;
+    }
+
+    async function rowFromMine(r){
+      // Resolve target name
+      let label = "User";
+      try{
+        if (r.review_target_type === "user"){
+          const { data } = await supabase.from("profiles").select("full_name").eq("id", r.review_target_id).maybeSingle();
+          label = (data && data.full_name) || "User";
+        } else if (r.review_target_type === "store"){
+          const { data } = await supabase.from("store_profiles").select("name").eq("id", r.review_target_id).maybeSingle();
+          label = (data && data.name) || "Store";
+        }
+      }catch(e){}
+      return `<div class="mb-2">
+        <div class="d-flex align-items-center justify-content-between">
+          <strong>About ${ (r.review_target_type === "store" ? "Store" : "User") }: ${(label||"").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]))}</strong>
+          <span class="small text-muted">${new Date(r.created_at).toLocaleDateString()}</span>
+        </div>
+        <div>${stars(r.rating || 5)}</div>
+        <div class="small text-muted">${(r.message||"").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&gt;'}[s]))}</div>
+      </div>`;
+    }
+
+    // Build the Reviews panel content: received first, then written
+    const parts = [];
+    parts.push(`<div class="fw-semibold mb-1">Reviews about this user</div>`);
+    if (recvd.length){
+      parts.push(recvd.map(rowFromAbout).join(""));
+    } else {
+      parts.push(`<div class="small text-muted mb-2">No reviews yet.</div>`);
+    }
+
+    parts.push(`<hr class="my-2">`);
+    parts.push(`<div class="fw-semibold mb-1">Reviews written by this user</div>`);
+    if (Array.isArray(myWritten) && myWritten.length){
+      const built = [];
+      for (const r of myWritten){ built.push(await rowFromMine(r)); }
+      parts.push(built.join(""));
+    } else {
+      parts.push(`<div class="small text-muted">No reviews written yet.</div>`);
+    }
+
+    profileReviewsEl.innerHTML = parts.join("");
 
     // Bulletins
     const { data: bulletins } = await supabase
@@ -93,7 +221,7 @@ const supabase = window.supabase;
     profileBulletinsEl.innerHTML = bulletins?.length
       ? bulletins.map(b =>
         `<div class="mb-2">
-          ${b.message}
+          ${sanitizeHtml(b.message || '')}
           <small class="text-muted d-block">${new Date(b.created_at).toLocaleDateString()}</small>
         </div>`
       ).join("")

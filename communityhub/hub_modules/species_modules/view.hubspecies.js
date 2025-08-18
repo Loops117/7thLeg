@@ -88,10 +88,15 @@ async function loadSpeciesView(speciesId) {
         <div class="modal-dialog modal-dialog-centered modal-lg">
           <div class="modal-content bg-dark">
             <div class="modal-body text-center">
-              <img id="galleryModalImage" src="" class="img-fluid rounded" alt="Gallery Image">
+              <img id="galleryModalImage" src="" class="img-fluid rounded" alt="Gallery Image" style="transform-origin:center center; cursor: grab;">
             </div>
             <div class="modal-footer justify-content-between">
               <button type="button" class="btn btn-light btn-sm" onclick="prevGallery()">⟨ Prev</button>
+              <div class="btn-group btn-group-sm ms-2">
+                <button type="button" id="btn-zoom-out" class="btn btn-light">−</button>
+                <button type="button" id="btn-zoom-reset" class="btn btn-light">Reset</button>
+                <button type="button" id="btn-zoom-in" class="btn btn-light">+</button>
+              </div>
               <button type="button" class="btn btn-light btn-sm" onclick="nextGallery()">Next ⟩</button>
               <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
             </div>
@@ -145,23 +150,136 @@ async function loadSpeciesView(speciesId) {
 }
 
 // Lightbox controls
+function setModalImage(idx){
+  const list = Array.isArray(window.galleryImages) ? window.galleryImages : [];
+  const url = list[idx];
+  const img = document.getElementById("galleryModalImage");
+  if (!img) return;
+  if (url){
+    img.src = url;
+    img.dataset.index = String(idx);
+  } else {
+    // fallback: clear or keep previous to avoid broken icon
+    if (!img.src) img.src = "";
+  }
+}
+
 function openGallery(idx) {
   window.currentGalleryIndex = idx;
-  document.getElementById("galleryModalImage").src = window.galleryImages[idx];
+  setModalImage(idx);
 }
 function prevGallery() {
-  window.currentGalleryIndex =
-    (window.currentGalleryIndex - 1 + window.galleryImages.length) % window.galleryImages.length;
-  openGallery(window.currentGalleryIndex);
+  const total = (window.galleryImages || []).length || 0;
+  if (!total) return;
+  const current = parseInt(document.getElementById("galleryModalImage")?.dataset.index || "0", 10) || 0;
+  const next = (current - 1 + total) % total;
+  window.currentGalleryIndex = next;
+  setModalImage(next);
 }
 function nextGallery() {
-  window.currentGalleryIndex =
-    (window.currentGalleryIndex + 1) % window.galleryImages.length;
-  openGallery(window.currentGalleryIndex);
+  const total = (window.galleryImages || []).length || 0;
+  if (!total) return;
+  const current = parseInt(document.getElementById("galleryModalImage")?.dataset.index || "0", 10) || 0;
+  const next = (current + 1) % total;
+  window.currentGalleryIndex = next;
+  setModalImage(next);
 }
+// expose to inline handlers
+window.openGallery = openGallery;
+window.prevGallery = prevGallery;
+window.nextGallery = nextGallery;
 
 
 
+
+
+// Zoom / Pan for modal image
+(function(){
+  let scale = 1;
+  let panX = 0, panY = 0;
+  let dragging = false, lastX = 0, lastY = 0;
+
+  function apply(){
+    const img = document.getElementById("galleryModalImage");
+    if (!img) return;
+    img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    img.style.cursor = scale > 1 ? (dragging ? "grabbing" : "grab") : "default";
+  }
+  function zoomBy(delta){
+    const img = document.getElementById("galleryModalImage");
+    if (!img) return;
+    const prev = scale;
+    scale = Math.max(1, Math.min(4, scale + delta));
+    // when zooming, keep pan within reasonable bounds
+    const rect = img.getBoundingClientRect();
+    const maxX = (rect.width * (scale-1)) / 2;
+    const maxY = (rect.height * (scale-1)) / 2;
+    panX = Math.max(-maxX, Math.min(maxX, panX));
+    panY = Math.max(-maxY, Math.min(maxY, panY));
+    apply();
+  }
+  function reset(){
+    scale = 1; panX = 0; panY = 0; apply();
+  }
+
+  // Buttons
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "btn-zoom-in"){ zoomBy(0.25); }
+    if (e.target && e.target.id === "btn-zoom-out"){ zoomBy(-0.25); }
+    if (e.target && e.target.id === "btn-zoom-reset"){ reset(); }
+  });
+
+  // Wheel zoom
+  document.addEventListener("wheel", (e) => {
+    const img = document.getElementById("galleryModalImage");
+    if (!img) return;
+    if (!img.closest("#galleryModal.show")) return; // only when modal open
+    if (!e.ctrlKey && !e.altKey) return; // require ctrl/alt to avoid hijacking page scroll
+    e.preventDefault();
+    zoomBy(e.deltaY < 0 ? 0.2 : -0.2);
+  }, { passive: false });
+
+  // Drag to pan
+  function onDown(e){
+    const img = document.getElementById("galleryModalImage");
+    if (!img || scale <= 1) return;
+    dragging = True
+    lastX = (e.touches ? e.touches[0].clientX : e.clientX);
+    lastY = (e.touches ? e.touches[0].clientY : e.clientY);
+    apply();
+  }
+  function onMove(e){
+    if (!dragging) return;
+    const x = (e.touches ? e.touches[0].clientX : e.clientX);
+    const y = (e.touches ? e.touches[0].clientY : e.clientY);
+    panX += (x - lastX);
+    panY += (y - lastY);
+    lastX = x; lastY = y;
+    apply();
+  }
+  function onUp(){ dragging = false; apply(); }
+
+  document.addEventListener("mousedown", (e) => {
+    if (e.target && e.target.id === "galleryModalImage") onDown(e);
+  });
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+
+  document.addEventListener("touchstart", (e) => {
+    if (e.target && e.target.id === "galleryModalImage") onDown(e);
+  }, { passive: true });
+  document.addEventListener("touchmove", onMove, { passive: true });
+  document.addEventListener("touchend", onUp);
+  document.addEventListener("touchcancel", onUp);
+
+  // Reset zoom when a new image is shown or modal closed
+  document.addEventListener("shown.bs.modal", (e) => {
+    if (e.target && e.target.id === "galleryModal") reset();
+  });
+  document.addEventListener("hidden.bs.modal", (e) => {
+    if (e.target && e.target.id === "galleryModal") reset();
+  });
+})();
 
 export async function init(userId, params = {}) {
   const speciesId = params.id;

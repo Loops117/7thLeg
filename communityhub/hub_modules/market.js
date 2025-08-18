@@ -36,7 +36,7 @@ const supabase = window.supabase;
     // Join through store_listings -> store_profiles to avoid relying on store_profiles.active
     const { data, error } = await supabase
       .from("store_listings")
-      .select("store_id, store_profiles!inner ( id, name )")
+      .select("store_id, store_profiles!inner ( id, name, slug, logo_url )")
       .eq("active", true)
       .order("store_id", { ascending: true })
       .limit(500);
@@ -106,7 +106,7 @@ const supabase = window.supabase;
         currency,
         store_id,
         cover_image,
-        store_profiles!inner ( id, name )
+        store_profiles!inner ( id, name, slug, logo_url )
       `)
       .eq("active", true)
       .order("updated_at", { ascending: false })
@@ -178,7 +178,10 @@ const supabase = window.supabase;
     }
 
     const desc = isDry ? (l.dry_description || l.description || "") : (l.description || "");
-    const storeName = l.store_profiles?.name || "Store";
+    const sp = l.store_profiles || {};
+    const storeName = sp.name || "Store";
+    const storeId = sp.id;
+    const storeSlug = sp.slug;
     const price = formatPrice(l.price_per_batch, l.currency);
     const fallback = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
@@ -189,7 +192,7 @@ const supabase = window.supabase;
           <img src="${escapeAttr(l.cover_image) || fallback}" alt="${escapeAttr(title)}" class="card-img-top" style="object-fit:cover;">
         </div>
         <div class="card-body d-flex flex-column">
-          <div class="small text-muted mb-1">${escapeHTML(storeName)}</div>
+          <div class="d-flex align-items-center gap-2 small mb-1">${logoHtml(sp.logo_url, storeName, 18)}<a class="text-decoration-none" href="${storeSlug ? `/communityhub/hub.html?module=store/view_store&slug=${encodeURIComponent(storeSlug)}` : `/communityhub/hub.html?module=store/view_store&id=${encodeURIComponent(storeId)}`}">${escapeHTML(storeName)}</a></div>
           <h6 class="mb-1">${escapeHTML(title)}</h6>
           ${desc ? `<p class="mb-2 small text-muted" style="min-height:2.5em">${escapeHTML(desc).slice(0,150)}${desc.length>150?'…':''}</p>` : ``}
           <div class="mt-auto d-flex align-items-center justify-content-between">
@@ -207,6 +210,12 @@ const supabase = window.supabase;
   function ilike(s){ return `%${String(s).replace(/[%_]/g, m => "\\"+m)}%`; }
   function escapeHTML(s){ return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escapeAttr(s){ return escapeHTML(s); }
+  function logoHtml(url, alt, size=18){
+    if (url) {
+      return `<img src="${escapeAttr(url)}" alt="${escapeAttr(alt||'')}" class="rounded border" style="width:${size}px;height:${size}px;object-fit:cover;background:#fff;">`;
+    }
+    return `<span class="rounded-circle border bg-light d-inline-block" style="width:${size}px;height:${size}px;"></span>`;
+  }
   function formatPrice(v, cur){
     if (v === null || v === undefined || v === "") return "";
     const n = Number(v);
