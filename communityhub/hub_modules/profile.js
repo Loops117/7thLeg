@@ -104,6 +104,9 @@ const supabase = window.supabase;
       .from("user_inventories")
       .select("id, species, common_name, morph_name, cover_image, insect_type")
       .eq("user_id", uid);
+// analytics hook
+try{ window._lastProfileInventory = inventory || []; renderProfileAnalytics(window._lastProfileInventory); }catch(e){ console.warn(e); }
+
 
     if (inventory?.length) {
       inventory.sort((a, b) => a.species.localeCompare(b.species));
@@ -191,3 +194,60 @@ const supabase = window.supabase;
   });
 
 })();
+
+// ===== Profile Analytics (compact stats + pie) =====
+function renderProfileAnalytics(inventory){
+  try{
+    const totalsEl = document.getElementById("profile-stats-total");
+    const uniqueEl = document.getElementById("profile-stats-unique");
+    const typesWrap = document.getElementById("profile-stats-types");
+    const legendEl = document.getElementById("profile-stats-legend");
+    const pieCanvas = document.getElementById("profile-type-pie");
+    if (!totalsEl && !pieCanvas) return;
+
+    const items = Array.isArray(inventory) ? inventory : [];
+    const total = items.length;
+    const speciesSet = new Set(items.map(i => (i.species || "").trim()).filter(Boolean));
+    const byType = {};
+    for (const row of items) {
+      const key = (row.insect_type || "Unspecified").trim() || "Unspecified";
+      byType[key] = (byType[key] || 0) + 1;
+    }
+
+    if (totalsEl) totalsEl.textContent = String(total);
+    if (uniqueEl) uniqueEl.textContent = String(speciesSet.size);
+
+    if (typesWrap) {
+      typesWrap.innerHTML = Object.keys(byType).length
+        ? Object.entries(byType).sort((a,b)=> b[1]-a[1]).map(([k,v]) =>
+            `<span class="badge rounded-pill border bg-light text-dark">${k}: ${v}</span>`
+          ).join(" ")
+        : '<span class="text-muted small">No inventory yet.</span>';
+    }
+
+    // Wait for Chart.js if needed
+    if (!window.Chart) { setTimeout(() => renderProfileAnalytics(inventory), 200); return; }
+
+    if (pieCanvas && total > 0 && Object.keys(byType).length > 0) {
+      const labels = Object.keys(byType);
+      const values = labels.map(k => byType[k]);
+      const data = { labels, datasets: [{ data: values }] };
+      new Chart(pieCanvas.getContext('2d'), { type: 'pie', data, options: { plugins:{ legend:{ display:false } } } });
+      if (legendEl) legendEl.innerHTML = labels.map((k, i) => `<span class="badge rounded-pill border bg-light text-dark me-1">${k}: ${values[i]}</span>`).join("");
+    } else if (pieCanvas && total === 0) {
+      const ctx = pieCanvas.getContext('2d');
+      ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto';
+      ctx.fillStyle = '#6c757d';
+      ctx.fillText('No inventory yet.', 10, 20);
+    }
+  }catch(e){ console.warn('Stats render error:', e); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const t = document.getElementById('profile-stats-total');
+    if (t && t.textContent === '—' && Array.isArray(window._lastProfileInventory)) {
+      try{ renderProfileAnalytics(window._lastProfileInventory); }catch(e){}
+    }
+  }, 400);
+});
