@@ -1,68 +1,121 @@
-<!-- Home Module -->
-<div class="row">
-  <!-- Left Column -->
-  <div class="col-md-6 mb-4">
-    <!-- Badges + Rating -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <h5>Your Badges</h5>
-        <div id="user-badges" class="d-flex flex-wrap gap-2 mb-3">Loading badges...</div>
-        <div id="user-rating">⭐ No reviews yet</div>
-      </div>
-    </div>
+<!-- Home Module: FB-style Prompt + Modal Composer (HTML only) -->
+<div id="home-root" class="container-fluid px-0">
 
-    <!-- Recent Bulletins -->
-    <div class="card shadow-sm h-100">
-      <div class="card-body">
-        <h5>Recent Bulletins</h5>
-        <form id="bulletin-form" class="mb-3">
-          <div class="input-group">
-            <input type="text" id="bulletin-input" class="form-control" placeholder="Write a new bulletin..."
-              maxlength="300" required>
-            <button class="btn btn-primary" type="submit">Post</button>
-          </div>
-        </form>
-        <table class="table table-sm mb-0">
-          <tbody id="bulletin-table">
-            <tr>
-              <td>Loading...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+  <!-- Prompt bar (looks like an input, is actually a button) -->
+  <div class="card border-0 shadow-sm mb-3" id="composer-prompt-card">
+    <div class="card-body py-2 d-flex align-items-center gap-2">
+      <div class="rounded-circle bg-light-subtle border" style="width:36px;height:36px;"></div>
+      <button id="open-bulletin-modal" class="prompt-button flex-grow-1 text-start">
+        Post a bulletin
+      </button>
     </div>
   </div>
 
-  <!-- Right Column -->
-  <div class="col-md-6 mb-4">
-    <!-- Your Species -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <h5>Your Species</h5>
-        <div class="d-flex flex-wrap gap-2" id="species-thumbs">
-          Loading species...
+  <!-- Infinite Feed (no header label) -->
+  <div id="home-feed" class="d-flex flex-column gap-3"></div>
+  <div id="home-feed-sentinel" class="py-4 text-center text-muted">Loading…</div>
+</div>
+
+<!-- Modal: Create Bulletin -->
+<div id="bulletin-modal" class="bulletin-modal" aria-hidden="true">
+  <div class="bulletin-backdrop" data-role="modal-close"></div>
+  <div class="bulletin-dialog" role="dialog" aria-modal="true" aria-labelledby="bulletin-title">
+    <div class="bulletin-header">
+      <div id="bulletin-title">Create bulletin</div>
+      <button class="btn-close" type="button" aria-label="Close" data-role="modal-close">×</button>
+    </div>
+    <div class="bulletin-body">
+      <div class="mb-2">
+        <label class="form-label small mb-1">Type</label>
+        <select id="composer-type" class="form-select form-select-sm">
+          <option value="general" selected>General</option>
+          <option value="review">Review</option>
+          <option value="help">Help</option>
+        </select>
+      </div>
+
+      <!-- Review-only controls (shown when Type = Review by JS) -->
+      <div id="review-controls" class="review-controls d-none">
+        <div class="small fw-semibold mb-1">Review details</div>
+        <div class="row g-2">
+          <div class="col-5">
+            <select id="review-target-type" class="form-select form-select-sm">
+              <option value="store">Store</option>
+              <option value="user">User</option>
+            </select>
+          </div>
+          <div class="col-7">
+            <input id="review-target-id" type="text" class="form-control form-control-sm" placeholder="Target UUID">
+          </div>
         </div>
+        <div class="mt-2">
+          <label class="form-label small mb-1">Rating</label>
+          <select id="review-rating" class="form-select form-select-sm">
+            <option value="5">★★★★★ (5)</option>
+            <option value="4">★★★★☆ (4)</option>
+            <option value="3">★★★☆☆ (3)</option>
+            <option value="2">★★☆☆☆ (2)</option>
+            <option value="1">★☆☆☆☆ (1)</option>
+          </select>
+        </div>
+        <hr class="my-2">
+      </div>
+
+      <div id="composer-editor"
+           class="form-control"
+           contenteditable="true"
+           aria-label="Bulletin editor (HTML allowed)"
+           style="min-height:160px;border-radius:12px;"></div>
+
+      <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+        <input type="file" id="composer-image" accept="image/*" class="form-control form-control-sm" style="max-width:260px;">
+        <button class="btn btn-sm btn-outline-secondary" id="composer-insert-image" type="button">Add Photo</button>
+        <div class="small text-muted">HTML allowed. Scripts/handlers will be removed.</div>
       </div>
     </div>
 
-    <!-- Recent Auctions -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <h5>Recent Auctions</h5>
-        <ul class="list-group list-group-flush" id="recent-auctions">
-          <li class="list-group-item">Loading...</li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- Recent Trades -->
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h5>Recent Trades</h5>
-        <ul class="list-group list-group-flush" id="recent-trades">
-          <li class="list-group-item">Loading...</li>
-        </ul>
-      </div>
+    <div class="bulletin-footer">
+      <button class="btn btn-light" type="button" data-role="modal-close">Cancel</button>
+      <button class="btn btn-primary" id="composer-post" type="button">Post</button>
     </div>
   </div>
 </div>
+
+<!-- Minimal local styles (prompt is compact; cards stack clean on mobile) -->
+<style>
+  /* Prompt bar */
+  #composer-prompt-card { border-radius: 14px; }
+  .prompt-button {
+    display:block; border:1px solid rgba(0,0,0,.1); background:#f8f9fa;
+    padding:.6rem .9rem; border-radius:999px; color:#6c757d;
+  }
+  .prompt-button:hover { background:#f1f3f5; color:#495057; }
+
+  /* Modal */
+  .bulletin-modal { position:fixed; inset:0; display:none; z-index:1050; }
+  .bulletin-modal.open { display:block; }
+  .bulletin-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.4); }
+  .bulletin-dialog {
+    position:relative; margin:5vh auto 0; background:#fff; width:min(720px, 92vw);
+    border-radius:14px; box-shadow:0 .5rem 1rem rgba(0,0,0,.15); overflow:hidden;
+    max-height:90vh; display:flex; flex-direction:column;
+  }
+  .bulletin-header, .bulletin-footer { padding:.75rem 1rem; background:#f8f9fa; }
+  .bulletin-header { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
+  .btn-close { border:0; background:transparent; font-size:1.25rem; line-height:1; }
+  .bulletin-body { padding:1rem; overflow:auto; }
+  .review-controls.d-none { display:none !important; }
+
+  /* Feed cards – ensure meta ABOVE content (no side-by-side squeeze) */
+  .bulletin-card .card-body { display:block; }
+  .bulletin-card .bulletin-meta {
+    display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap;
+  }
+  .bulletin-card .bulletin-content { display:block; width:100%; }
+  .bulletin-card img { max-width:100%; height:auto; border-radius:8px; }
+
+  @media (max-width: 576px){
+    .prompt-button { padding:.55rem .85rem; }
+    .bulletin-dialog { width:94vw; margin-top:4vh; }
+  }
+</style>
