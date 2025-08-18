@@ -726,4 +726,59 @@
       }
     }catch(e){ console.warn("refreshSignedImages failed", e); }
   }
+  console.log("✅ home-post-guard.js loaded (post button guard + idempotency)");
+  if (window.__POST_GUARD_WIRED__) return;
+  window.__POST_GUARD_WIRED__ = true;
+
+  function simpleHash(s){
+    let h = 5381, i = s.length; while(i) h = (h*33) ^ s.charCodeAt(--i); return (h>>>0).toString(36);
+  }
+  function sanitizeHtml(html){
+    try{
+      const doc = new DOMParser().parseFromString(`<div>${html}</div>`,"text/html");
+      const root = doc.body.firstChild;
+      root.querySelectorAll("script,iframe,object,embed").forEach(n=>n.remove());
+      root.querySelectorAll("*").forEach(el=>{[...el.attributes].forEach(a=>{ if(/^on/i.test(a.name)) el.removeAttribute(a.name); });});
+      return root.innerHTML.trim();
+    }catch{ return String(html||"").trim(); }
+  }
+
+  document.addEventListener("click", async function(e){
+    const btn = e.target.closest("#composer-post");
+    if (!btn) return;
+    if (btn.disabled) { e.preventDefault(); e.stopPropagation(); return; }
+    try{
+      const editor = document.getElementById("composer-editor");
+      const typeSel = document.getElementById("composer-type");
+      const clean = sanitizeHtml(editor?.innerHTML || "");
+      const type = (typeSel?.value || "general");
+      const tgtType = document.getElementById("review-target-type")?.value || "";
+      const tgtId = document.getElementById("review-target-id")?.value || "";
+      const rating = document.getElementById("review-rating")?.value || "";
+
+      if (!window.supabase || !window.supabase.auth) return; // let original handler run
+      const { data:{ user } } = await window.supabase.auth.getUser();
+      if (!user) return;
+
+      const sig = simpleHash(`${user.id}|${type}|${tgtType}|${tgtId}|${rating}|${clean}`);
+      const key = `post:${user.id}:${sig}`;
+      if (sessionStorage.getItem(key)){
+        e.preventDefault(); e.stopPropagation();
+        alert("Looks like you already posted that just now.");
+        return;
+      }
+      // mark and auto-clear
+      sessionStorage.setItem(key, Date.now().toString());
+      setTimeout(()=>sessionStorage.removeItem(key), 20000);
+
+      // Single-flight: disable briefly so double clicks don't fire multiple inserts
+      btn.disabled = true;
+      const old = btn.textContent;
+      btn.textContent = "Posting…";
+      setTimeout(()=>{ btn.disabled = false; btn.textContent = old; }, 5000);
+      // Allow your existing click handler to continue (we're augmenting, not replacing)
+    }catch(err){
+      console.warn("post guard error", err);
+    }
+  }, true); // capture: run before original handler
 })();
