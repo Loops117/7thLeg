@@ -13,6 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // After auth is ready, decide whether to reveal "My Store"
       await wireStoreMenu();
 
+      await loadAdRail();
+
+      await wirePromoCard();
+
       // Read query params
       const params = new URLSearchParams(window.location.search);
       const module = params.get("module") || "home";
@@ -124,4 +128,114 @@ document.addEventListener("DOMContentLoaded", () => {
     clearTimeout(_wireTimer);
     _wireTimer = setTimeout(() => wireStoreMenu(), 200);
   }
+
+      // Load a random vertical ad from store_profiles.vertical_ad_url (non-null/non-empty)
+      async function waitForSupabase(timeoutMs = 8000){
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs){
+          if (window.supabase && window.supabase.from && window.supabase.auth) return window.supabase;
+          await new Promise(r => setTimeout(r, 60));
+        }
+        console.error("Supabase not available for ad rail");
+        return null;
+      }
+
+      async function loadAdRail(){
+        const supabase = await waitForSupabase();
+        const img = document.getElementById("hub-vert-ad-img");
+        const ph  = document.getElementById("hub-vert-ad-ph");
+        const brand = document.getElementById("hub-ad-brand");
+        const link = document.getElementById("hub-vert-ad-link");
+        if (!supabase || !img || !ph || !brand || !link) return;
+
+        try {
+          const { data, error } = await supabase
+            .from("store_profiles")
+            .select("id, slug, name, vertical_ad_url")
+            .not("vertical_ad_url", "is", null)
+            .neq("vertical_ad_url", "")
+            .limit(100);
+          if (error) throw error;
+          const list = Array.isArray(data) ? data.filter(r => !!r.vertical_ad_url) : [];
+          if (!list.length){
+            // No ads available; keep placeholder text
+            return;
+          }
+          const pick = list[Math.floor(Math.random() * list.length)];
+
+          // Render
+          img.src = pick.vertical_ad_url;
+          img.style.display = "block";
+          ph.style.display = "none";
+          brand.textContent = pick.name ? `Visit ${pick.name}` : "Visit store";
+
+          // Click → open store view module in hub
+          const targetParams = pick.slug ? { slug: pick.slug } : { id: pick.id };
+          const href = pick.slug
+            ? `/communityhub/hub.html?module=store/view_store&slug=${encodeURIComponent(pick.slug)}`
+            : `/communityhub/hub.html?module=store/view_store&id=${encodeURIComponent(pick.id)}`;
+          link.setAttribute("href", href);
+          link.addEventListener("click", (e) => {
+            // route inside the hub
+            e.preventDefault();
+            if (window.loadModule){
+              window.loadModule("store/view_store", null, targetParams);
+            } else {
+              // Fallback: navigate
+              window.location.href = href;
+            }
+          }, { once: true });
+        } catch (e){
+          console.warn("Ad rail load failed", e);
+        }
+      }
+
+
+      async function wirePromoCard(){
+        try {
+          const supabase = await waitForSupabase();
+          const btn = document.getElementById("btn-store-promo");
+          if (!supabase || !btn) return;
+
+          // default: owner flow
+          const ownerHref = "/communityhub/hub.html?module=store/my_store&sub=store_advertising";
+          let isStoreUser = false;
+
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && user.id){
+            try {
+              const owned = await supabase.from("store_profiles").select("id").eq("owner_id", user.id).limit(1);
+              const emp = await supabase.from("store_employees").select("store_id").eq("user_id", user.id).limit(1);
+              isStoreUser = (Array.isArray(owned.data) && owned.data.length > 0) || (Array.isArray(emp.data) && emp.data.length > 0);
+            } catch (e) {
+              console.warn("store owner check failed", e);
+            }
+          }
+
+          if (isStoreUser){
+            // keep text & link, route inside hub if possible
+            btn.textContent = "Advertise your store";
+            btn.setAttribute("href", ownerHref);
+            btn.onclick = (ev) => {
+              ev.preventDefault();
+              if (window.loadModule) {
+                window.loadModule("store/my_store", null, { sub: "store_advertising" });
+              } else {
+                window.location.href = ownerHref;
+              }
+            };
+          } else {
+            // change to "Add your store" and show popup
+            btn.textContent = "Add your store";
+            btn.setAttribute("href", "#");
+            btn.onclick = (ev) => {
+              ev.preventDefault();
+              alert("Store Sign-up isn't open yet.");
+            };
+          }
+        } catch (e) {
+          console.warn("wirePromoCard failed", e);
+        }
+      }
+    
 });

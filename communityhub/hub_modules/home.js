@@ -318,6 +318,8 @@
     postBtn?.addEventListener("click", async () => {
       try{
         const { data: { user } } = await supabase.auth.getUser();
+        const isEdit = postBtn?.dataset?.mode === "edit";
+        const editId = postBtn?.dataset?.editId || null;
         if (!user) { alert("Please sign in."); return; }
         const typeSel = document.getElementById("composer-type");
         const editor = document.getElementById("composer-editor");
@@ -338,9 +340,15 @@
         }
 
         const row = { user_id: user.id, type: saveType, message: clean, help, review_target_type, review_target_id, rating };
-        const { data, error } = await supabase.from("bulletins").insert(row).select("id").single();
+        let data = null, error = null;
+        if (isEdit && editId){
+          ({ data, error } = await supabase.from('bulletins').update(row).eq('id', editId).eq('user_id', user.id).select('id').maybeSingle());
+        } else {
+          ({ data, error } = await supabase.from('bulletins').insert(row).select('id').single());
+        }
         if (error) { console.error("post insert error", error); alert(error.message || "Failed to post."); return; }
         document.querySelector("#bulletin-modal")?.classList.remove("open");
+        if (postBtn){ postBtn.textContent = "Post"; delete postBtn.dataset.mode; delete postBtn.dataset.editId; }
         document.documentElement.style.overflow = "";
         await FEED.prependById(supabase, data.id);
       }catch(err){
@@ -456,7 +464,10 @@
           <div class="mt-3 d-flex gap-2 flex-wrap">
             <button class="btn btn-sm btn-outline-secondary" data-role="comment-btn" data-id="${b.id}">Comment</button>
             <button class="btn btn-sm btn-outline-primary" data-role="view-comments" data-id="${b.id}">View comments (${count})</button>
-          </div>
+          
+            <button class="btn btn-sm btn-outline-secondary d-none" data-role="edit-bulletin" data-id="${b.id}">Edit</button>
+            <button class="btn btn-sm btn-outline-danger d-none" data-role="delete-bulletin" data-id="${b.id}">Delete</button>
+</div>
           <div class="mt-2 d-none" data-role="comment-box" data-id="${b.id}">
             <div class="input-group">
               <input type="text" class="form-control form-control-sm" placeholder="Write a comment...">
@@ -468,6 +479,46 @@
 
       
       // Render poster avatar
+      // Owner actions (show edit/delete to post author)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.id === b.user_id) {
+          const editBtn = wrap.querySelector('[data-role="edit-bulletin"]');
+          const delBtn  = wrap.querySelector('[data-role="delete-bulletin"]');
+          editBtn?.classList.remove('d-none');
+          delBtn?.classList.remove('d-none');
+          editBtn?.addEventListener('click', () => {
+            const openBtn = document.getElementById('open-bulletin-modal');
+            openBtn?.click();
+            const typeSel = document.getElementById('composer-type');
+            const reviewBox = document.getElementById('review-controls');
+            const editor = document.getElementById('composer-editor');
+            if (typeSel) typeSel.value = b.type || 'general';
+            if (reviewBox){
+              if (b.type === 'review'){
+                reviewBox.classList.remove('d-none');
+                const rt = document.getElementById('review-target-type');
+                const rid = document.getElementById('review-target-id');
+                const rr = document.getElementById('review-rating');
+                if (rt) rt.value = b.review_target_type || '';
+                if (rid) rid.value = b.review_target_id || '';
+                if (rr && b.rating) rr.value = String(b.rating);
+              } else {
+                reviewBox.classList.add('d-none');
+              }
+            }
+            if (editor) editor.innerHTML = b.message || '';
+            const postBtn = document.getElementById('composer-post');
+            if (postBtn){ postBtn.textContent = 'Save'; postBtn.dataset.mode = 'edit'; postBtn.dataset.editId = b.id; }
+          });
+          delBtn?.addEventListener('click', async () => {
+            if (!confirm('Delete this post?')) return;
+            const { error } = await supabase.from('bulletins').delete().eq('id', b.id).eq('user_id', user.id);
+            if (!error) wrap.remove();
+          });
+        }
+      } catch {}
+
       try {
         const av = wrap.querySelector('.bulletin-avatar');
         if (av) {
@@ -501,6 +552,10 @@
         if (!msg) return;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { alert("Please sign in."); return; }
+        const key = `cpost:${b.id}:${msg}`;
+        if (sessionStorage.getItem(key)) { return; }
+        sessionStorage.setItem(key, Date.now().toString());
+        setTimeout(()=>sessionStorage.removeItem(key), 15000);
         const { error } = await supabase.from("bulletin_comments").insert({ bulletin_id: b.id, user_id: user.id, message: msg });
         if (error) { console.warn("comment insert failed", error); return; }
         inp.value = "";
@@ -527,14 +582,37 @@
               list.innerHTML = `<div class="text-muted small">No comments yet.</div>`;
             } else {
               list.innerHTML = items.map(c => `
-                <div class="border rounded-3 p-2 mb-2">
+                <div class="border rounded-3 p-2 mb-2" data-comment-id="${c.id}" data-user-id="${c.user_id}">
                   <div class="d-flex align-items-center gap-2 mb-1">
                     <div class="rounded-circle bg-secondary-subtle" style="width:24px;height:24px;"></div>
                     <strong class="small"><a class="text-decoration-none" href="/communityhub/hub.html?module=profile&id=${encodeURIComponent(c.user_id)}">${escapeHtml(c.full_name)}</a></strong>
                     <span class="small text-muted ms-auto">${escapeHtml(new Date(c.created_at).toLocaleString())}</span>
                   </div>
-                  <div>${escapeHtml(c.message)}</div>
+                  <div data-role="comment-text">${escapeHtml(c.message)}</div>
+                  <div class="mt-1 d-flex gap-2 small">
+                    <button type="button" class="btn btn-link p-0" data-role="reply-comment" data-id="${c.id}" data-name="${escapeHtml(c.full_name)}">Reply</button>
+                    <button type="button" class="btn btn-link p-0 d-none" data-role="edit-comment" data-id="${c.id}">Edit</button>
+                    <button type="button" class="btn btn-link text-danger p-0 d-none" data-role="delete-comment" data-id="${c.id}">Delete</button>
+                  </div>
+                  <div class="mt-2 d-none" data-role="edit-row" data-id="${c.id}">
+                    <div class="input-group input-group-sm">
+                      <input type="text" class="form-control" value="${escapeHtml(c.message)}">
+                      <button class="btn btn-primary" type="button" data-role="save-comment" data-id="${c.id}">Save</button>
+                      <button class="btn btn-outline-secondary" type="button" data-role="cancel-edit" data-id="${c.id}">Cancel</button>
+                    </div>
+                  </div>
                 </div>`).join("");
+            // Unhide edit/delete for own comments right after render
+            try{
+              const { data: { user } } = await supabase.auth.getUser();
+              list.querySelectorAll('[data-comment-id]').forEach(row => {
+                const uid = (row.getAttribute('data-user-id')||'').trim();
+                if (user && user.id === uid){
+                  row.querySelector('[data-role="edit-comment"]')?.classList.remove('d-none');
+                  row.querySelector('[data-role="delete-comment"]')?.classList.remove('d-none');
+                }
+              });
+            }catch{}
             }
             list.dataset.loaded = "1";
           }
