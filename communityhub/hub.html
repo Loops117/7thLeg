@@ -218,6 +218,16 @@
       }
     }
   </style>
+
+
+  <link rel="manifest" href="/assets/manifest.webmanifest">
+  <meta name="theme-color" content="#198754">
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+
+
 </head>
 
 <body>
@@ -247,6 +257,7 @@
         <!-- Dashboard link at bottom -->
         <li class="nav-item mb-4">
           <a class="nav-link" href="#" data-module="settings">📊 Settings</a>
+           <button id="install-app-btn" style="display:none" class="btn btn-sm btn-success">Install App</button>
         </li>
       </ul>
     </nav>
@@ -324,6 +335,15 @@
       }
     });
   </script>
+
+  <script src="/assets/js/pwa-install.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(console.warn);
+    }
+  </script>
+
+
 </body>
 
 </html>

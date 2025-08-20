@@ -1,0 +1,53 @@
+{
+  "name": "7th Leg Hub",
+  "short_name": "7th Leg",
+  "description": "Your community hub for species, market, auctions, and messages.",
+  "start_url": "/communityhub/hub.html?module=home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#198754",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Messages",
+      "short_name": "Messages",
+      "url": "/communityhub/hub.html?module=messages/messages_inbox"
+    },
+    {
+      "name": "Market",
+      "short_name": "Market",
+      "url": "/communityhub/hub.html?module=market"
+    },
+    {
+      "name": "My Store",
+      "short_name": "My Store",
+      "url": "/communityhub/hub.html?module=store/my_store"
+    },
+    {
+      "name": "Auctions",
+      "short_name": "Auctions",
+      "url": "/communityhub/hub.html?module=auctions_trades"
+    }
+  ]
+}
