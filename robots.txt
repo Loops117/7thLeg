@@ -1,0 +1,6 @@
+# robots.txt — 7th Leg
+# Block crawlers from hammering dynamic hub pages and JS endpoints.
+User-agent: *
+Disallow: /communityhub/
+Disallow: /assets/js/
+Allow: /
