@@ -3,9 +3,9 @@
    Load this AFTER your main styles. */
 
 :root{
-  --sl-navbar-py: .25rem;   /* vertical padding on navbar (top/bottom) */
+  --sl-navbar-py: .15rem;   /* vertical padding on navbar (top/bottom) */
   --sl-navlink-py: .25rem;  /* vertical padding on each nav link */
-  --sl-brand-img-h: 180px;   /* logo height */
+  --sl-brand-img-h: 60px;   /* logo height */
 }
 
 /* Apply to any Bootstrap navbar that has .navbar-thin */
