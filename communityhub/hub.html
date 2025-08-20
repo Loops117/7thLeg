@@ -8,74 +8,199 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
 
   <style>
-    html, body { margin: 0; padding: 0;; background: #ffffff;}
-    #header, #footer { width: 100%; }
-    #header { position: fixed; top: 0; left: 0; width: 100%; z-index: 3000; background: #fff; }
-    #footer { position: relative; z-index: 3200; background: #fff; }
-    body { padding-top: 100px; }
-
-    /* Sidebar defaults */
-    #sidebar-wrapper { width: 240px; background: #f8f9fa; border-right: 1px solid #ddd; transition: transform 0.3s ease; z-index: 2000; }
-    /* Mobile sidebar */
-    #sidebar-wrapper { position: fixed; top: 100px; left: -240px; height: calc(100% - 100px); }
-    #sidebar-wrapper.open { left: 0; }
-
-    #sidebar-tab { position: fixed; top: 100px; left: 0; background: #198754; color: #fff; padding: 8px 12px; border-top-right-radius: 6px; border-bottom-right-radius: 6px; cursor: pointer; z-index: 3100; }
-    #sidebar-wrapper.open + #sidebar-tab { left: 240px; }
-
-    @media (min-width: 768px) {
-      #sidebar-wrapper { position: fixed; top: 100px; left: 0; width: 240px; height: calc(100% - 100px); overflow-y: auto; transform: none; z-index: 2500; }
-      #sidebar-tab { display: none; }
-      #hub-main { margin-left: 240px; margin-top: 0; }
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      ;
+      background: #ffffff;
     }
 
-    #hub-sidebar { display: flex; flex-direction: column; height: 100%; }
-    #hub-sidebar .nav-link { color: #333; border-radius: 6px; margin-bottom: 0.4rem; padding: 0.6rem 1rem; font-weight: 500; }
-    #hub-sidebar .nav-link:hover { background-color: #e9ecef; color: #000; }
-    #hub-sidebar .nav-link.active { background-color: #198754; color: #fff; }
-    #hub-sidebar .mt-auto { margin-top: auto; }
+    #header,
+    #footer {
+      width: 100%;
+    }
 
-    #hub-content { padding: 1rem; padding-left: 1.5rem; padding-right: 1.5rem; min-height: calc(100vh - 160px); }
-    @media (min-width: 768px) { #hub-content { padding-left: 2rem; padding-right: 2rem; } }
-    @media (min-width: 1200px) { #hub-content { padding-left: 3rem; padding-right: 3rem; } }
-  
+    #header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 3000;
+      background: #fff;
+    }
+
+    #footer {
+      position: relative;
+      z-index: 3200;
+      background: #fff;
+    }
+
+    body {
+      padding-top: 100px;
+    }
+
+    /* Sidebar defaults */
+    #sidebar-wrapper {
+      width: 240px;
+      background: #f8f9fa;
+      border-right: 1px solid #ddd;
+      transition: transform 0.3s ease;
+      z-index: 2000;
+    }
+
+    /* Mobile sidebar */
+    #sidebar-wrapper {
+      position: fixed;
+      top: 100px;
+      left: -240px;
+      height: calc(100% - 100px);
+    }
+
+    #sidebar-wrapper.open {
+      left: 0;
+    }
+
+    #sidebar-tab {
+      position: fixed;
+      top: 100px;
+      left: 0;
+      background: #198754;
+      color: #fff;
+      padding: 8px 12px;
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
+      cursor: pointer;
+      z-index: 3100;
+    }
+
+    #sidebar-wrapper.open+#sidebar-tab {
+      left: 240px;
+    }
+
+    @media (min-width: 768px) {
+      #sidebar-wrapper {
+        position: fixed;
+        top: 100px;
+        left: 0;
+        width: 240px;
+        height: calc(100% - 100px);
+        overflow-y: auto;
+        transform: none;
+        z-index: 2500;
+      }
+
+      #sidebar-tab {
+        display: none;
+      }
+
+      #hub-main {
+        margin-left: 240px;
+        margin-top: 0;
+      }
+    }
+
+    #hub-sidebar {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    #hub-sidebar .nav-link {
+      color: #333;
+      border-radius: 6px;
+      margin-bottom: 0.4rem;
+      padding: 0.6rem 1rem;
+      font-weight: 500;
+    }
+
+    #hub-sidebar .nav-link:hover {
+      background-color: #e9ecef;
+      color: #000;
+    }
+
+    #hub-sidebar .nav-link.active {
+      background-color: #198754;
+      color: #fff;
+    }
+
+    #hub-sidebar .mt-auto {
+      margin-top: auto;
+    }
+
+    #hub-content {
+      padding: 1rem;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+      min-height: calc(100vh - 160px);
+    }
+
+    @media (min-width: 768px) {
+      #hub-content {
+        padding-left: 2rem;
+        padding-right: 2rem;
+      }
+    }
+
+    @media (min-width: 1200px) {
+      #hub-content {
+        padding-left: 3rem;
+        padding-right: 3rem;
+      }
+    }
+
     /* --- Right Ad Rail --- */
     :root {
       --ad-rail-width: 320px;
       --ad-rail-bg: #f7f9fc;
       --ad-rail-padding: 12px;
-      --ad-rail-sticky-top: 72px; /* distance from top when stuck */
+      --ad-rail-sticky-top: 72px;
+      /* distance from top when stuck */
     }
-    #hub-main { display: flex; gap: 16px; }
-    #hub-content { flex: 1 1 auto; }
+
+    #hub-main {
+      display: flex;
+      gap: 16px;
+    }
+
+    #hub-content {
+      flex: 1 1 auto;
+    }
+
     #hub-ad-rail {
       width: var(--ad-rail-width);
       background: var(--ad-rail-bg);
       border-left: 1px solid #e9ecef;
       padding: var(--ad-rail-padding);
-      display: none; /* hidden by default (mobile) */
+      display: none;
+      /* hidden by default (mobile) */
     }
+
     #hub-ad-rail .ad-box {
       border-radius: 8px;
       overflow: hidden;
       background: #fff;
       border: 1px solid #e5e7eb;
     }
+
     #hub-ad-rail .ad-img-wrap {
       width: 100%;
-      aspect-ratio: 1/2; /* prefer ~1:2 vertical images */
+      aspect-ratio: 1/2;
+      /* prefer ~1:2 vertical images */
       background: #fafafa;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
     }
+
     #hub-ad-rail img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: none;
     }
+
     #hub-ad-rail .ad-meta {
       padding: 8px 10px;
       border-top: 1px solid #f0f0f0;
@@ -83,15 +208,15 @@
       color: #6c757d;
       text-align: center;
     }
+
     @media (min-width: 992px) {
-      #hub-ad-rail { 
-        display: block; 
-        position: sticky; 
+      #hub-ad-rail {
+        display: block;
+        position: sticky;
         top: var(--ad-rail-sticky-top);
         align-self: flex-start;
       }
     }
-
   </style>
 </head>
 
@@ -131,7 +256,7 @@
   <div id="sidebar-tab">☰</div>
 
   <!-- Main content area -->
-  
+
   <!-- Main content area -->
   <div id="hub-main">
     <main id="hub-content" class="container-fluid">
@@ -154,8 +279,10 @@
           </div>
           <div class="card-body small">
             <p class="text-muted mb-2">Your ad could be here.</p>
-            <a class="btn btn-sm btn-outline-primary w-100 mb-2" id="btn-store-promo" href="/communityhub/hub.html?module=store/my_store&sub=store_advertising">Advertise your store</a>
-            <a class="btn btn-sm btn-outline-secondary w-100" href="/communityhub/hub.html?module=market">Browse the market</a>
+            <a class="btn btn-sm btn-outline-primary w-100 mb-2" id="btn-store-promo"
+              href="/communityhub/hub.html?module=store/my_store&sub=store_advertising">Advertise your store</a>
+            <a class="btn btn-sm btn-outline-secondary w-100" href="/communityhub/hub.html?module=market">Browse the
+              market</a>
           </div>
         </div>
       </div>
@@ -172,6 +299,12 @@
   <script src="/assets/js/include.js"></script>
   <script src="/assets/js/header-auth.js"></script>
   <script type="module" src="hub.js"></script>
+  <script type="module" src="/communityhub/hub-history.js"></script>
+  <script type="module" src="hub.js"></script>
+  <script src="/communityhub/hub-history.js"></script>
+  <script src="/communityhub/hub-routing-overlay.js"></script>
+
+
 
   <script>
     const sidebarTab = document.getElementById("sidebar-tab");
@@ -192,4 +325,5 @@
     });
   </script>
 </body>
+
 </html>

@@ -1,4 +1,7 @@
 const supabase = window.supabase;
+// Track which profile is currently being displayed to avoid flashes
+let __currentProfileId = null;
+let __analyticsFallbackTimer = null;
 
 // ---- helpers ----
 function initialsFrom(name){
@@ -71,6 +74,9 @@ function sanitizeHtml(html){
   const searchInput = document.getElementById("profile-search");
 
   async function fetchAndRenderProfile(uid) {
+    // Mark active profile render session
+    __currentProfileId = uid || null;
+    if (__analyticsFallbackTimer) { try{ clearTimeout(__analyticsFallbackTimer); }catch(e){} __analyticsFallbackTimer = null; }
     if (!uid) {
       document.getElementById("hub-content").innerHTML = "<p class='text-danger'>You must be logged in to view your profile.</p>";
       return;
@@ -233,15 +239,18 @@ function sanitizeHtml(html){
       .select("id, species, common_name, morph_name, cover_image, insect_type")
       .eq("user_id", uid);
 // analytics hook
-try{ window._lastProfileInventory = inventory || []; renderProfileAnalytics(window._lastProfileInventory); }catch(e){ console.warn(e); }
+try{
+  window._lastProfileInventory = inventory || [];
+  window._lastProfileInventory_uid = uid;
+  renderProfileAnalytics(window._lastProfileInventory, { uid });
+}catch(e){ console.warn(e); }
+
 
 
     if (inventory?.length) {
       inventory.sort((a, b) => a.species.localeCompare(b.species));
       profileInventoryEl.innerHTML = inventory.map(i => `
         <div class="d-flex align-items-center mb-2">
-          <img src="${i.cover_image || '/assets/images/default-species.jpg'}"
-              alt="${i.species}" class="me-2 rounded" style="width:50px;height:50px;object-fit:cover;">
           <div>
             <a href="#" onclick="loadModule('species_modules/view.hubspecies', null, { id: '${i.id}' })">
               <i>${i.species}</i>
@@ -279,53 +288,131 @@ try{ window._lastProfileInventory = inventory || []; renderProfileAnalytics(wind
 
   await fetchAndRenderProfile(userId);
 
-  // Add My Profile button
-  const form = document.getElementById("profile-search-form");
-  const myBtn = document.createElement("button");
-  myBtn.className = "btn btn-outline-secondary btn-sm ms-2";
-  myBtn.textContent = "My Profile";
-  myBtn.onclick = async (e) => {
-    e.preventDefault();
-    if (user?.id) {
-      await fetchAndRenderProfile(user.id);
+  
+  // Wire built-in "My Profile" button (do not create duplicates)
+  const myBtnEl = document.getElementById("my-profile-btn");
+  if (myBtnEl) {
+    myBtnEl.style.display = user?.id ? "" : "none";
+    myBtnEl.onclick = async (e) => {
+      e.preventDefault();
+      if (user?.id) {
+        await fetchAndRenderProfile(user.id);
+      }
+    };
+  }
+
+  // Search (debounced, dropdown below the input)
+  const dropdown = document.getElementById("search-dropdown");
+  const inputEl = document.getElementById("profile-search");
+  const formEl = document.getElementById("profile-search-form");
+
+  // Ensure dropdown is positioned relative to the form and aligned to input
+  if (formEl && dropdown) {
+    // Move dropdown inside the form to scope absolute positioning
+    if (dropdown.parentElement !== formEl) {
+      formEl.appendChild(dropdown);
     }
-  };
-  form.appendChild(myBtn);
+    formEl.style.position = formEl.style.position || "relative";
+    dropdown.style.position = "absolute";
+    dropdown.style.display = "none";
+    dropdown.style.maxHeight = "300px";
+    dropdown.style.overflowY = "auto";
+    dropdown.style.zIndex = "1000";
+  }
 
-  // Search
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const query = searchInput.value.trim();
-    if (!query) return;
+  function alignDropdown() {
+    if (!formEl || !inputEl || !dropdown) return;
+    const left = inputEl.offsetLeft;
+    const top = inputEl.offsetTop + inputEl.offsetHeight + 4;
+    const width = inputEl.offsetWidth;
+    dropdown.style.left = left + "px";
+    dropdown.style.top = top + "px";
+    dropdown.style.width = width + "px";
+  }
+  window.addEventListener("resize", alignDropdown);
 
-    const { data: matches } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .ilike("full_name", `%${query}%`)
-      .limit(10);
+  let searchTimer = null;
+  async function runSearch(q) {
+    if (!q || q.trim().length < 2) { dropdown.style.display = "none"; return; }
+    alignDropdown();
+    try {
+      const { data: matches, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .ilike("full_name", `%${q.trim()}%`)
+        .limit(10);
+      if (error) { console.warn("profile search failed", error); dropdown.style.display = "none"; return; }
 
-    if (!matches?.length) {
-      const box = document.createElement("div");
-      box.className = "dropdown-menu show";
-      box.style.position = "absolute";
-      box.style.top = `${form.offsetTop + form.offsetHeight}px`;
-      box.style.left = `${form.offsetLeft}px`;
-      box.style.zIndex = 9999;
-      box.innerHTML = `<span class="dropdown-item text-muted">User not found</span>`;
-      document.body.appendChild(box);
-      setTimeout(() => box.remove(), 3000);
-      return;
+      if (!matches || !matches.length) {
+        dropdown.innerHTML = `<li class="list-group-item small text-muted">No matches</li>`;
+        dropdown.style.display = "block";
+        return;
+      }
+      dropdown.innerHTML = matches.map(m => `
+        <li class="list-group-item list-group-item-action d-flex align-items-center gap-2" data-id="${m.id}">
+          ${ (m.avatar_url ? `<img src="${m.avatar_url}" alt="" class="rounded-circle" style="width:24px;height:24px;object-fit:cover;">` : `<div class="rounded-circle bg-light border" style="width:24px;height:24px; display:flex;align-items:center;justify-content:center;font-size:12px;">${(m.full_name||"?").slice(0,1).toUpperCase()}</div>`) }
+          <span>${(m.full_name||"User").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]))}</span>
+        </li>`).join("");
+      dropdown.style.display = "block";
+    } catch (e) {
+      console.warn("profile search failed", e);
+      dropdown.style.display = "none";
     }
+  }
 
-    // Autoselect first match for now
-    await fetchAndRenderProfile(matches[0].id);
+  if (inputEl) {
+    inputEl.addEventListener("input", () => {
+      const q = inputEl.value;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => runSearch(q), 500); // 0.5s debounce
+    });
+    inputEl.addEventListener("focus", () => {
+      if (dropdown && dropdown.innerHTML.trim()) {
+        alignDropdown();
+        dropdown.style.display = "block";
+      }
+    });
+  }
+
+  // Click on a result -> load that profile and hide dropdown
+  if (dropdown) {
+    dropdown.addEventListener("click", async (ev) => {
+      const li = ev.target.closest("li[data-id]");
+      if (!li) return;
+      const id = li.getAttribute("data-id");
+      dropdown.style.display = "none";
+      inputEl.blur();
+      await fetchAndRenderProfile(id);
+    });
+  }
+
+  // Hide when clicking outside
+  document.addEventListener("click", (ev) => {
+    if (!dropdown || !inputEl) return;
+    if (ev.target === inputEl || ev.target.closest("#profile-search-form")) return;
+    dropdown.style.display = "none";
   });
 
+  // Keep Enter submit as backup: load top result if visible
+  formEl?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const first = dropdown?.querySelector("li[data-id]");
+    if (first) {
+      const id = first.getAttribute("data-id");
+      dropdown.style.display = "none";
+      await fetchAndRenderProfile(id);
+    } else {
+      // fallback: run search immediately
+      await runSearch(inputEl?.value || "");
+    }
+  });
 })();
 
 // ===== Profile Analytics (compact stats + pie) =====
-function renderProfileAnalytics(inventory){
+function renderProfileAnalytics(inventory, opts={}){
   try{
+    const { uid } = opts || {};
+    if (uid && typeof __currentProfileId !== 'undefined' && __currentProfileId && uid !== __currentProfileId) { return; }
     const totalsEl = document.getElementById("profile-stats-total");
     const uniqueEl = document.getElementById("profile-stats-unique");
     const typesWrap = document.getElementById("profile-stats-types");
@@ -354,7 +441,7 @@ function renderProfileAnalytics(inventory){
     }
 
     // Wait for Chart.js if needed
-    if (!window.Chart) { setTimeout(() => renderProfileAnalytics(inventory), 200); return; }
+    if (!window.Chart) { setTimeout(() => renderProfileAnalytics(inventory, opts), 200); return; }
 
     if (pieCanvas && total > 0 && Object.keys(byType).length > 0) {
       const labels = Object.keys(byType);
@@ -371,11 +458,26 @@ function renderProfileAnalytics(inventory){
   }catch(e){ console.warn('Stats render error:', e); }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    const t = document.getElementById('profile-stats-total');
-    if (t && t.textContent === '—' && Array.isArray(window._lastProfileInventory)) {
-      try{ renderProfileAnalytics(window._lastProfileInventory); }catch(e){}
+
+// Cleaned analytics fallback (single instance)
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    if (typeof window.__analyticsFallbackTimer !== "undefined" && window.__analyticsFallbackTimer) {
+      clearTimeout(window.__analyticsFallbackTimer);
     }
+  } catch {}
+
+  window.__analyticsFallbackTimer = setTimeout(() => {
+    try {
+      const totalsEl = document.getElementById("profile-stats-total");
+      if (!totalsEl) return;
+      const needsRender = totalsEl.textContent === "—";
+      const invReady = Array.isArray(window._lastProfileInventory);
+      const uid = window._lastProfileInventory_uid;
+      // only render if the cached inventory belongs to the *currently* active profile
+      if (needsRender && invReady && uid && uid === window.__currentProfileId) {
+        window.renderProfileAnalytics(window._lastProfileInventory, { uid });
+      }
+    } catch {}
   }, 400);
 });
