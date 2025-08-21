@@ -584,7 +584,7 @@
               list.innerHTML = items.map(c => `
                 <div class="border rounded-3 p-2 mb-2" data-comment-id="${c.id}" data-user-id="${c.user_id}">
                   <div class="d-flex align-items-center gap-2 mb-1">
-                    <div class="rounded-circle bg-secondary-subtle" style="width:24px;height:24px;"></div>
+                    ${avatarHtml(c.avatar_url, c.full_name, 24)}
                     <strong class="small"><a class="text-decoration-none" href="/communityhub/hub.html?module=profile&id=${encodeURIComponent(c.user_id)}">${escapeHtml(c.full_name)}</a></strong>
                     <span class="small text-muted ms-auto">${escapeHtml(new Date(c.created_at).toLocaleString())}</span>
                   </div>
@@ -617,6 +617,68 @@
             list.dataset.loaded = "1";
           }
           vbtn.textContent = "Hide comments";
+            // Wire comment actions: reply, edit, save, cancel, delete
+            list.addEventListener("click", async (ev) => {
+              const btn = ev.target.closest("[data-role]");
+              if (!btn) return;
+              const role = btn.getAttribute("data-role");
+              const commentId = btn.getAttribute("data-id");
+              if (!role) return;
+
+              if (role === "reply-comment") {
+                const name = btn.getAttribute("data-name") || "";
+                const inp = cbox.querySelector("input");
+                cbox.classList.remove("d-none");
+                inp.value = (inp.value ? inp.value + " " : "") + "@" + name + " ";
+                inp.focus();
+              }
+
+              if (role === "edit-comment") {
+                const row = list.querySelector(`[data-comment-id="${commentId}"]`);
+                if (!row) return;
+                row.querySelector('[data-role="edit-row"]')?.classList.remove("d-none");
+              }
+
+              if (role === "cancel-edit") {
+                const row = list.querySelector(`[data-comment-id="${commentId}"]`);
+                if (!row) return;
+                row.querySelector('[data-role="edit-row"]')?.classList.add("d-none");
+              }
+
+              if (role === "save-comment") {
+                const row = list.querySelector(`[data-comment-id="${commentId}"]`);
+                if (!row) return;
+                const input = row.querySelector('input[type="text"]');
+                const newMsg = (input?.value || "").trim();
+                if (!newMsg) return;
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) { alert("Please sign in."); return; }
+                  const { error } = await supabase.from("bulletin_comments").update({ message: newMsg }).eq("id", commentId).eq("user_id", user.id);
+                  if (error) { alert(error.message || "Update failed."); return; }
+                  row.querySelector('[data-role="comment-text"]').textContent = newMsg;
+                  row.querySelector('[data-role="edit-row"]')?.classList.add("d-none");
+                } catch (e) { console.warn("save-comment failed", e); }
+              }
+
+              if (role === "delete-comment") {
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) { alert("Please sign in."); return; }
+                  if (!confirm("Delete this comment?")) return;
+                  const { error } = await supabase.from("bulletin_comments").delete().eq("id", commentId).eq("user_id", user.id);
+                  if (error) { alert(error.message || "Delete failed."); return; }
+                  const row = list.querySelector(`[data-comment-id="${commentId}"]`);
+                  if (row) row.remove();
+                  // Decrement counts
+                  const m = /(\d+)/.exec(countEl?.textContent || "0"); const current = m ? parseInt(m[1],10) : 0;
+                  const next = Math.max(0, current - 1);
+                  if (countEl) countEl.textContent = `${next} comment${next===1?"":"s"}`;
+                  vbtn.textContent = `View comments (${next})`;
+                } catch (e) { console.warn("delete-comment failed", e); }
+              }
+            }, { once: false });
+
         } else {
           list.classList.add("d-none");
           const m = /(\d+)/.exec(countEl?.textContent || "0"); const current = m ? parseInt(m[1],10) : 0;
@@ -639,15 +701,15 @@
       if (error || !comments) return [];
 
       const ids = Array.from(new Set(comments.map(c => c.user_id).filter(Boolean)));
-      let names = {};
+      let names = {}; let avatars = {};
       if (ids.length){
         const { data: profs } = await supabase
           .from("profiles")
-          .select("id, full_name")
+          .select("id, full_name, avatar_url")
           .in("id", ids);
-        if (profs) for (const p of profs) names[p.id] = p.full_name || "User";
+        if (profs) for (const p of profs){ names[p.id] = p.full_name || "User"; avatars[p.id] = p.avatar_url || null; }
       }
-      return comments.map(c => ({ ...c, full_name: names[c.user_id] || "User" }));
+      return comments.map(c => ({ ...c, full_name: names[c.user_id] || "User", avatar_url: avatars[c.user_id] || null }));
     }
 
     async function renderStoresBlock(supabase){
