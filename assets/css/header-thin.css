@@ -19,3 +19,12 @@
 
 /* If some pages hard-code #header height, override it */
 #header { height: auto !important; min-height: 0; }
+
+/* --- mobile tweaks to keep header content visible without hamburger --- */
+.navbar-thin .navbar-toggler { display: none !important; }
+.navbar-thin .navbar-collapse { display: flex !important; flex-basis: auto !important; }
+.navbar-thin .navbar-nav { gap: .5rem; flex-wrap: wrap; }
+.navbar-thin .nav-link, .navbar-thin .dropdown-toggle { white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .navbar-thin .navbar-brand img { height: 48px; max-height: 48px; }
+}

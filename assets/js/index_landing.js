@@ -20,7 +20,7 @@ console.log("✅ index_landing.js loaded");
 
   // Not logged in → show stats + market preview
   try { await hydrateStats(); } catch (e) { console.warn("stats error:", e); }
-  try { await hydrateMarketListings(); } catch (e) { console.warn("market preview error:", e); }
+  try { if (typeof hydrateMarketListings === "function") { await hydrateMarketListings(); } } catch (e) { console.warn("market preview error:", e); }
 })();
 
 /* ------------------------------- helpers -------------------------------- */
@@ -39,57 +39,138 @@ function escapeHTML(s) {
   return String(s || "").replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39'}[c]));
 }
 
+
+
 /* -------------------------------- stats --------------------------------- */
 async function hydrateStats() {
   const sb = window.supabase;
-
   try {
-    // Species tracked (row count)
-    const { count: speciesCount } = await sb
-      .from("user_inventories").select("id", { count: "exact", head: true });
+    // Fetch last 15 days (running totals)
+    const { data: rows, error } = await sb
+      .from("daily_counts_running")
+      .select("day_date, users_total, species_tracked_total, images_uploaded_total, stores_total, listings_total, listings_active_snapshot, expos_approved_total, auctions_total, trades_total")
+      .order("day_date", { ascending: false })
+      .limit(15);
 
-    // Photos (non-null cover_image)
-    const { count: photos } = await sb
-      .from("user_inventories").select("id", { count: "exact", head: true })
-      .not("cover_image", "is", null);
+    if (error) throw error;
+    const series = (rows || []).slice().reverse(); // oldest -> newest
+    const latest = series[series.length - 1] || {};
 
-    // Users
-    const { count: users } = await sb
-      .from("profiles").select("id", { count: "exact", head: true });
+    // Badges count (single head query)
+    const { count: badges } = await sb.from("user_badges").select("id", { count: "exact", head: true });
 
-    // Badges
-    const { count: badges } = await sb
-      .from("user_badges").select("id", { count: "exact", head: true });
-
-    // Stores
-    const { count: stores } = await sb
-      .from("store_profiles").select("id", { count: "exact", head: true });
-
-    // Active listings
-    const { count: listings } = await sb
-      .from("store_listings").select("id", { count: "exact", head: true })
-      .eq("active", true);
-
-    // Approved expos
-    const { count: expos } = await sb
-      .from("expos").select("id", { count: "exact", head: true })
-      .eq("approved", true);
-
-    // Auctions + Trades (from your schema list)
-    const { count: auctionsCount } = await sb
-      .from("auctions").select("id", { count: "exact", head: true });
-    const { count: tradesCount } = await sb
-      .from("trades").select("id", { count: "exact", head: true });
-
-    setNum("stat-species", speciesCount || 0);
-    setNum("stat-photos", photos || 0);
-    setNum("stat-users", users || 0);
+    // Numbers
+    setNum("stat-species", latest?.species_tracked_total || 0);
+    setNum("stat-photos", latest?.images_uploaded_total || 0);
+    setNum("stat-users", latest?.users_total || 0);
+    setNum("stat-stores", latest?.stores_total || 0);
+    setNum("stat-listings", latest?.listings_active_snapshot ?? latest?.listings_total ?? 0);
+    setNum("stat-expos", latest?.expos_approved_total || 0);
+    setNum("stat-auctrade", (latest?.auctions_total || 0) + (latest?.trades_total || 0));
     setNum("stat-badges", badges || 0);
-    setNum("stat-stores", stores || 0);
-    setNum("stat-listings", listings || 0);
-    setNum("stat-expos", expos || 0);
-    setNum("stat-auctrade", ((auctionsCount || 0) + (tradesCount || 0)));
+
+    // Sparklines (15-day series)
+    setSparkImg("stat-species", series.map(r => r.species_tracked_total ?? 0));
+    setSparkImg("stat-photos", series.map(r => r.images_uploaded_total ?? 0));
+    setSparkImg("stat-users", series.map(r => r.users_total ?? 0));
+    setSparkImg("stat-stores", series.map(r => r.stores_total ?? 0));
+    setSparkImg("stat-listings", series.map(r => (r.listings_active_snapshot ?? r.listings_total ?? 0)));
+    setSparkImg("stat-expos", series.map(r => r.expos_approved_total ?? 0));
+    setSparkImg("stat-auctrade", series.map(r => (r.auctions_total ?? 0) + (r.trades_total ?? 0)));
+    // (We can add a badges sparkline later if desired.)
   } catch (err) {
     console.error("Failed to load stats:", err);
   }
+}
+
+
+
+
+
+
+/* --------------------------- sparkline helpers --------------------------- */
+function makeSparkline(values, { width=300, height=120, strokeWidth=4 } = {}) {
+  if (!values || values.length === 0) return "";
+  const n = values.length;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = 6;
+  const w = width, h = height;
+  const x = (i) => (i * (w - pad*2)) / Math.max(1, n - 1) + pad;
+  const y = (v) => {
+    if (max === min) return h/2;
+    const t = (v - min) / (max - min);
+    return h - pad - t * (h - pad*2);
+  };
+
+  let d = "";
+  for (let i = 0; i < n; i++) {
+    const xi = x(i), yi = y(values[i]);
+    d += (i === 0 ? `M${xi} ${yi}` : ` L${xi} ${yi}`);
+  }
+
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>
+    <path d='${d}' fill='none' stroke='%230d6efd' stroke-width='${strokeWidth}' stroke-linecap='round' stroke-linejoin='round' />
+  </svg>`;
+  // Encode as data URI
+  const uri = "data:image/svg+xml," + encodeURIComponent(svg);
+  return `url("${uri}")`;
+}
+
+function setSparkImg(elOrId, values) {
+  const el = typeof elOrId === "string" ? document.getElementById(elOrId) : elOrId;
+  if (!el) return;
+  const host = el.closest(".stat-card") || el.closest(".card") || el;
+  if (!host) return;
+  host.classList.add("sparkline-card");
+  const url = makeSparkline(values);
+  if (url) host.style.setProperty("--spark-image", url);
+}
+
+/* --------------------------- sparkline <img> helpers --------------------------- */
+function sparkDataURI(values, { width=300, height=120, strokeWidth=4 } = {}) {
+  if (!values || values.length === 0) return "";
+  const n = values.length;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = 6;
+  const w = width, h = height;
+  const x = (i) => (i * (w - pad*2)) / Math.max(1, n - 1) + pad;
+  const y = (v) => {
+    if (max === min) return h/2;
+    const t = (v - min) / (max - min);
+    return h - pad - t * (h - pad*2);
+  };
+
+  let d = "";
+  for (let i = 0; i < n; i++) {
+    const xi = x(i), yi = y(values[i] ?? 0);
+    d += (i === 0 ? `M${xi} ${yi}` : ` L${xi} ${yi}`);
+  }
+
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>
+    <path d='${d}' fill='none' stroke='#0d6efd' stroke-width='${strokeWidth}' stroke-linecap='round' stroke-linejoin='round' />
+  </svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+function setSparkImg(elOrId, values) {
+  const el = typeof elOrId === "string" ? document.getElementById(elOrId) : elOrId;
+  if (!el) return;
+  // Choose host card
+  let host = el.closest(".spark-host") || el.closest(".stat-card") || el.closest(".card") || el;
+  host.classList.add("spark-host");
+  if (getComputedStyle(host).position === "static") {
+    host.style.position = "relative";
+  }
+  // Create or reuse <img.spark-bg>
+  let img = host.querySelector(":scope > img.spark-bg");
+  if (!img) {
+    img = document.createElement("img");
+    img.className = "spark-bg";
+    img.alt = "";
+    host.prepend(img);
+  }
+  const uri = sparkDataURI(values);
+  if (uri) img.src = uri;
 }
