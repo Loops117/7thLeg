@@ -125,6 +125,7 @@
     const $lng   = document.getElementById("acct-lng");
     const $msg   = document.getElementById("acct-msg");
     const $form  = document.getElementById("acct-form");
+    const $about = document.getElementById("acct-about");
 
     const $file   = document.getElementById("acct-avatar-file");
     const $upload = document.getElementById("acct-avatar-upload");
@@ -143,7 +144,7 @@
 
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("full_name, location, city, state, lat, lng, avatar_url, address_full, postal_code, country, created_at")
+          .select("full_name, about_me, location, city, state, lat, lng, avatar_url, address_full, postal_code, country, created_at")
           .eq("id", user.id)
           .single();
 
@@ -162,6 +163,8 @@
         if (profile?.lng) $lng.value = profile.lng;
 
         renderAvatar(profile?.avatar_url || "");
+
+        if ($about) $about.value = safeVal(profile?.about_me);
 
         if (profile?.avatar_url && profile.avatar_url.includes("/profile-images/")) {
           const parts = profile.avatar_url.split("/profile-images/")[1];
@@ -300,6 +303,7 @@
 
         const payload = {
           full_name: ($name.value || "").trim() || null,
+          about_me: ($about && $about.value ? $about.value.trim() : null),
           location: display || null, // public "City, ST"
           city, state, lat, lng,
           address_full: full || null, // private shipping address
@@ -310,7 +314,7 @@
         let { error } = await supabase.from("profiles").update(payload).eq("id", user.id);
         if (error) {
           const attempts = [
-            ["address_full","postal_code","country","lat","lng","city","state","location"],
+            ["about_me","address_full","postal_code","country","lat","lng","city","state","location"],
             ["postal_code","country","lat","lng","city","state","location"],
             ["lat","lng","city","state","location"],
             ["city","state","location"],

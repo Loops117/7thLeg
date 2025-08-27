@@ -1,7 +1,6 @@
-
-// home.js — smaller uploaded images (resized to webp), tiny thumbnails in editor/feed, plus reviews+search+comments
+// home.js — feed + prompt wiring (robust lazy-loader for bulletin_composer.js)
 (function () {
-  console.log("✅ home.js (small-image uploads + tiny thumbs + reviews target + search + comments)");
+  console.log("✅ home.js loaded");
 
   if (document.readyState !== "loading") boot();
   else document.addEventListener("DOMContentLoaded", boot);
@@ -9,20 +8,52 @@
   async function boot() {
     try {
       const supabase = await waitForSupabase();
-      if (!supabase) { console.error("❌ Supabase not available"); return; }
-
       teardown();
       ensureMarkup();
+      wirePromptButton();           // ensures the click is registered + lazy-loads composer
       await renderPromptAvatar(supabase);
-      wireModal();
-      wireComposer(supabase);
+      wireFilters(supabase);
       await FEED.init(supabase);
     } catch (e) {
       console.error("❌ home.js boot failed", e);
     }
   }
 
-  async function waitForSupabase(timeoutMs = 8000){
+  
+  // ---- Feed filters (All / ID Requests / Help / Reviews) ----
+  window.__FEED_FILTER__ = window.__FEED_FILTER__ || 'all';
+  function wireFilters(supabase){
+    // prefer existing markup with [data-feed-filter], else inject minimal bar
+    let buttons = Array.from(document.querySelectorAll('[data-feed-filter]'));
+    if (!buttons.length){
+      const promptCard = document.getElementById('composer-prompt-card');
+      const bar = document.createElement('div');
+      bar.className = 'd-flex gap-2 mb-3 flex-wrap';
+      bar.innerHTML = `
+        <button class="btn btn-sm btn-outline-secondary active" data-feed-filter="all">All</button>
+        <button class="btn btn-sm btn-outline-secondary" data-feed-filter="id_request">ID Requests</button>
+        <button class="btn btn-sm btn-outline-secondary" data-feed-filter="help">Help</button>
+        <button class="btn btn-sm btn-outline-secondary" data-feed-filter="review">Reviews</button>
+      `;
+      promptCard?.insertAdjacentElement('afterend', bar);
+      buttons = Array.from(bar.querySelectorAll('[data-feed-filter]'));
+    }
+    const applyActive = (val) => {
+      buttons.forEach(b => b.classList.toggle('active', b.getAttribute('data-feed-filter') === val));
+    };
+    applyActive(window.__FEED_FILTER__);
+    buttons.forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const val = btn.getAttribute('data-feed-filter') || 'all';
+        if (window.__FEED_FILTER__ === val) return;
+        window.__FEED_FILTER__ = val;
+        applyActive(val);
+        // reload feed
+        try { await FEED.init(supabase); } catch(e){ console.warn('filter reload failed', e); }
+      }, { passive: true });
+    });
+  }
+async function waitForSupabase(timeoutMs = 8000){
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       if (window.supabase && window.supabase.auth && window.supabase.from) return window.supabase;
@@ -31,17 +62,17 @@
     return null;
   }
 
-  /* ---------------- TEARDOWN (for SPA nav) ---------------- */
+  /* ---------------- TEARDOWN ---------------- */
   function teardown(){
     try { window.__HOME_OBS__?.disconnect(); } catch {}
     window.__HOME_OBS__ = null;
-    ["composer-prompt-card","home-feed","home-feed-sentinel","bulletin-modal","home-inline-style"].forEach(id => {
+    ["composer-prompt-card","home-feed","home-feed-sentinel","home-inline-style"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.remove();
     });
   }
 
-  /* ---------------- MARKUP INJECTION ---------------- */
+  /* ---------------- MARKUP ---------------- */
   function ensureMarkup(){
     const root = document.getElementById("home-root") || document.getElementById("hub-content") || document.querySelector("main") || document.body;
     // Prompt card
@@ -50,7 +81,7 @@
     card.className = "card border-0 shadow-sm mb-3";
     card.innerHTML = `<div class="card-body py-2 d-flex align-items-center gap-2">
         <div id="composer-avatar" class="rounded-circle bg-light-subtle border" style="width:36px;height:36px;"></div>
-        <button id="open-bulletin-modal" class="prompt-button flex-grow-1 text-start">Post a bulletin</button>
+        <button id="open-bulletin-modal" class="prompt-button flex-grow-1 text-start" data-composer-src="">Post a bulletin</button>
       </div>`;
     root.prepend(card);
 
@@ -66,63 +97,6 @@
     s.textContent = "Loading…";
     (document.getElementById("home-root") || root).appendChild(s);
 
-    // Modal
-    const modal = document.createElement("div");
-    modal.id = "bulletin-modal";
-    modal.className = "bulletin-modal";
-    modal.setAttribute("aria-hidden","true");
-    modal.innerHTML = `
-      <div class="bulletin-backdrop" data-role="modal-close"></div>
-      <div class="bulletin-dialog" role="dialog" aria-modal="true" aria-labelledby="bulletin-title">
-        <div class="bulletin-header">
-          <div id="bulletin-title">Create bulletin</div>
-          <button class="btn-close" type="button" aria-label="Close" data-role="modal-close">×</button>
-        </div>
-        <div class="bulletin-body">
-          <div class="mb-2">
-            <label class="form-label small mb-1">Type</label>
-            <select id="composer-type" class="form-select form-select-sm">
-              <option value="general" selected>General</option>
-              <option value="review">Review</option>
-              <option value="help">Help</option>
-            </select>
-          </div>
-          <div id="review-controls" class="review-controls d-none">
-            <div class="small fw-semibold mb-1">Review details</div>
-            <div class="mb-2 position-relative">
-              <label class="form-label small mb-1">Review target</label>
-              <input id="review-target-search" type="text" class="form-control form-control-sm" placeholder="Search stores or users...">
-              <div id="review-target-results" class="dropdown-menu show" style="display:none; position:absolute; left:0; right:0; top:100%; z-index:10; max-height:240px; overflow:auto;"></div>
-              <div class="small mt-1" id="review-target-picked"></div>
-              <input type="hidden" id="review-target-type">
-              <input type="hidden" id="review-target-id">
-            </div>
-            <div class="mt-2">
-              <label class="form-label small mb-1">Rating</label>
-              <select id="review-rating" class="form-select form-select-sm">
-                <option value="5">★★★★★ (5)</option>
-                <option value="4">★★★★☆ (4)</option>
-                <option value="3">★★★☆☆ (3)</option>
-                <option value="2">★★☆☆☆ (2)</option>
-                <option value="1">★☆☆☆☆ (1)</option>
-              </select>
-            </div>
-            <hr class="my-2">
-          </div>
-          <div id="composer-editor" class="form-control" contenteditable="true" aria-label="Bulletin editor (HTML allowed)" style="min-height:160px;border-radius:12px;"></div>
-          <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
-            <input type="file" id="composer-image" accept="image/*" class="form-control form-control-sm" style="max-width:260px;">
-            <button class="btn btn-sm btn-outline-secondary" id="composer-insert-image" type="button">Add Photo</button>
-            <div class="text-secondary fw-semibold">Images will be resized automatically. HTML allowed; scripts/handlers removed.</div>
-          </div>
-        </div>
-        <div class="bulletin-footer">
-          <button class="btn btn-light" type="button" data-role="modal-close">Cancel</button>
-          <button class="btn btn-primary" id="composer-post" type="button">Post</button>
-        </div>
-      </div>`;
-    document.body.appendChild(modal);
-
     // Styles
     const st = document.createElement("style");
     st.id = "home-inline-style";
@@ -130,230 +104,116 @@
       #composer-prompt-card { border-radius: 14px; }
       .prompt-button{ display:block;border:1px solid rgba(0,0,0,.1);background:#f8f9fa;padding:.6rem .9rem;border-radius:999px;color:#6c757d;}
       .prompt-button:hover{ background:#f1f3f5; color:#495057; }
-
-      /* Overlay container spans the viewport and centers the dialog using flexbox */
-      .bulletin-modal{ position:fixed; inset:0; display:none; z-index:5000; }
-      .bulletin-modal.open{
-        display:flex;
-        align-items:flex-start;
-        justify-content:center;
-        padding: var(--bulletin-modal-top, 220px) 24px 24px;
-      }
-      .bulletin-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.4); }
-
-      .bulletin-dialog{
-        position:relative;
-        background:#fff; width:min(720px,92vw);
-        border-radius:14px; box-shadow:0 .5rem 1rem rgba(0,0,0,.15);
-        overflow:hidden;
-        max-height: calc(100vh - var(--bulletin-modal-top, 220px) - 32px);
-        display:flex; flex-direction:column;
-      }
-
-      @media (max-width: 576px){
-        .bulletin-modal.open{ padding: 10vh 3vw 3vh; }
-        .bulletin-dialog{
-          width: 94vw;
-          max-height: calc(100vh - 13vh);
-        }
-      }
-
-      .bulletin-header,.bulletin-footer{ padding:.75rem 1rem; background:#f8f9fa; }
-      .bulletin-header{ display:flex; align-items:center; justify-content:space-between; font-weight:700; }
-      .btn-close{ border:0; background:transparent; font-size:1.25rem; line-height:1; }
-      .bulletin-body{ padding:1rem; overflow:auto; }
-      .review-controls.d-none{ display:none !important; }
-      .dropdown-item small{ color:#6c757d; }
-      /* Tiny thumbnails in editor and in feed when our class is used */
-      #composer-editor img.bulletin-inline-img{ width:128px !important; height:auto !important; object-fit:contain; border-radius:8px; }
       .bulletin-content img.bulletin-inline-img{ width:128px !important; height:auto !important; object-fit:contain; border-radius:8px; }
       .bulletin-card .card-body{ display:block; }
       .bulletin-card .bulletin-meta{ display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap; }
       .bulletin-card .bulletin-content{ display:block; width:100%; }
       .bulletin-card img{ max-width:100%; height:auto; border-radius:8px; }
+    
+      .bulletin-gallery{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem;}
+      .bulletin-gallery .bulletin-thumb img{width:150px;height:150px;object-fit:cover;border-radius:8px;}
     `;
     document.head.appendChild(st);
   }
 
-  /* ---------------- MODAL & COMPOSER ---------------- */
-  function readCssVarPx(name){
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    if (!v) return null;
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : null;
-  }
-  function detectHeaderOffsetPx(){
-    if (typeof window.HOME_MODAL_TOP === "number" && isFinite(window.HOME_MODAL_TOP)) return window.HOME_MODAL_TOP;
-    const cssTop = readCssVarPx('--bulletin-modal-top'); if (cssTop) return cssTop;
+  /* ---------------- PROMPT BUTTON ---------------- */
+  function wirePromptButton(){
+    const btn = document.getElementById("open-bulletin-modal");
+    if (!btn) { console.warn("⚠️ open-bulletin-modal not found to wire"); return; }
+    console.log("🔗 wiring prompt button");
 
-    const selectors = ['#hub-header', 'header', '.navbar', '#header', '.topbar'];
-    let maxH = 0;
-    for (const sel of selectors){
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      const cs = getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      if ((cs.position === 'fixed' || cs.position === 'sticky')) {
-        maxH = Math.max(maxH, el.offsetHeight || rect.height || 0);
-      }
-    }
-    return Math.max(220, maxH + 40);
-  }
+    btn.addEventListener("click", async () => {
+      console.log("🖱️ prompt clicked");
+      const modal = document.getElementById("bulletin-modal");
+      if (modal) return openModal(modal);
 
-  function wireModal(){
-    const modal = document.getElementById("bulletin-modal");
-    const openBtn = document.getElementById("open-bulletin-modal");
-    const editor = document.getElementById("composer-editor");
-    const typeSel = document.getElementById("composer-type");
-    const reviewBox = document.getElementById("review-controls");
-
-    const open = () => {
-      const topPx = detectHeaderOffsetPx();
-      document.documentElement.style.setProperty('--bulletin-modal-top', topPx + 'px');
-
-      modal.classList.add("open");
-      document.documentElement.style.overflow = "hidden";
-      if (editor) editor.innerHTML = "";
-      if (typeSel) typeSel.value = "general";
-      if (reviewBox) reviewBox.classList.add("d-none");
-      // Reset target picker
-      const picked = document.getElementById("review-target-picked");
-      const hidT = document.getElementById("review-target-type");
-      const hidI = document.getElementById("review-target-id");
-      const search = document.getElementById("review-target-search");
-      if (picked) picked.innerHTML = "";
-      if (hidT) hidT.value = "";
-      if (hidI) hidI.value = "";
-      if (search) search.value = "";
-    };
-    const close = () => {
-      modal.classList.remove("open");
-      document.documentElement.style.overflow = "";
-    };
-
-    openBtn?.addEventListener("click", open);
-    modal?.querySelectorAll("[data-role='modal-close']")?.forEach(el => el.addEventListener("click", close));
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && modal?.classList.contains("open")) close();
-    });
-    typeSel?.addEventListener("change", () => {
-      if (!reviewBox) return;
-      reviewBox.classList.toggle("d-none", typeSel.value !== "review");
-    });
-
-    wireTargetSearch();
-  }
-
-  function wireTargetSearch(){
-    const box = document.getElementById("review-controls");
-    if (!box) return;
-    const search = document.getElementById("review-target-search");
-    const menu = document.getElementById("review-target-results");
-    const picked = document.getElementById("review-target-picked");
-    const hidT = document.getElementById("review-target-type");
-    const hidI = document.getElementById("review-target-id");
-    if (!search || !menu || !picked || !hidT || !hidI) return;
-
-    let t = null;
-    const debounce = (fn, ms=250) => (...args) => { clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
-    const doSearch = debounce(async (q) => {
-      q = (q||"").trim();
-      if (!q) { menu.style.display="none"; menu.innerHTML=""; return; }
-      const supabase = window.supabase;
       try {
-        const [stores, users] = await Promise.all([
-          supabase.from("store_profiles").select("id,name").ilike("name", `%${q}%`).order("name",{ascending:true}).limit(6),
-          supabase.from("profiles").select("id,full_name").ilike("full_name", `%${q}%`).order("full_name",{ascending:true}).limit(6)
-        ]);
-        const s = (stores.data||[]).map(r => ({ id: r.id, label: r.name || "Store", type: "store" }));
-        const u = (users.data||[]).map(r => ({ id: r.id, label: r.full_name || "User", type: "user" }));
-        const results = [...s, ...u]; // stores listed first
-        if (!results.length) { menu.style.display="none"; menu.innerHTML=""; return; }
-        menu.innerHTML = results.map(r => `<button type="button" class="dropdown-item" data-type="${r.type}" data-id="${r.id}">${escapeHtml(r.label)} <small>(${r.type})</small></button>`).join("");
-        menu.style.display = "block";
-        menu.querySelectorAll(".dropdown-item").forEach(btn => btn.addEventListener("click", () => {
-          const type = btn.getAttribute("data-type");
-          const id = btn.getAttribute("data-id");
-          const label = btn.textContent.replace(/\s*\(\w+\)\s*$/,"").trim();
-          hidT.value = type; hidI.value = id;
-          picked.innerHTML = `<span class="badge text-bg-light border">${escapeHtml(label)} <span class="text-muted">(${type})</span></span>`;
-          menu.style.display="none"; menu.innerHTML="";
-          search.value = label;
-        }));
+        await loadComposerScript(btn);
       } catch (e) {
-        console.warn("target search failed", e);
-        menu.style.display="none"; menu.innerHTML="";
+        console.error("❌ Failed to load bulletin_composer.js", e);
+        return;
       }
-    });
 
-    search.addEventListener("input", () => doSearch(search.value));
-    search.addEventListener("focus", () => { if (search.value.trim()) doSearch(search.value); });
-    document.addEventListener("click", (e) => {
-      if (!box.contains(e.target)) { menu.style.display="none"; }
+      const modal2 = document.getElementById("bulletin-modal");
+      if (modal2) openModal(modal2);
+      else window.dispatchEvent(new CustomEvent("open-bulletin-composer"));
+    }, { passive: true });
+  }
+
+  function openModal(modal){
+    modal.classList.add("open");
+    document.documentElement.style.overflow = "hidden";
+  }
+
+  function loadComposerScript(btn){
+    return new Promise(async (resolve, reject) => {
+      if (document.getElementById("bulletin-composer-script")) return resolve();
+      const tried = [];
+
+      // 0) Explicit overrides (win or attr)
+      const override = (window.BULLETIN_COMPOSER_SRC || btn.getAttribute("data-composer-src") || "").trim();
+      if (override) {
+        tried.push(override);
+        const ok = await trySrc(override);
+        if (ok) return resolve();
+      }
+
+      // 1) Same directory as this home.js
+      const dir = getScriptDir();
+      const sameDir = dir + "bulletin_composer.js?v=" + Date.now();
+      tried.push(sameDir);
+      if (await trySrc(sameDir)) return resolve();
+
+      // 2) Relative to current page (hub.html)
+      const base = new URL(document.baseURI || window.location.href);
+      const rel1 = new URL("./bulletin_composer.js?v=" + Date.now(), base).href;
+      tried.push(rel1);
+      if (await trySrc(rel1)) return resolve();
+
+      // 3) common folders under communityhub
+      const common = [
+        "./hub_modules/bulletin_composer.js",
+        "./modules/bulletin_composer.js",
+        "./js/bulletin_composer.js",
+        "../hub_modules/bulletin_composer.js",
+        "../modules/bulletin_composer.js",
+        "../js/bulletin_composer.js",
+      ].map(p => new URL(p + "?v=" + Date.now(), base).href);
+
+      for (const url of common){
+        tried.push(url);
+        if (await trySrc(url)) return resolve();
+      }
+
+      console.error("❌ Could not locate bulletin_composer.js. Tried:", tried);
+      reject(new Error("load-failed"));
     });
   }
 
-  function wireComposer(supabase){
-    const insertBtn = document.getElementById("composer-insert-image");
-    const fileInput = document.getElementById("composer-image");
-    const postBtn = document.getElementById("composer-post");
-
-    async function addSelectedFile(){
-      const file = fileInput?.files?.[0];
-      if (!file) return;
-      // Resize client-side to keep bucket small; produce WEBP (max 512x512)
-      const resized = await resizeImageFile(file, { maxW: 512, maxH: 512, mime: "image/webp", quality: 0.82 });
-      if (!resized) { alert("Could not process image."); return; }
-      const res = await uploadAndSign(supabase, resized.blob, { originalName: file.name, forceExt: ".webp", contentType: "image/webp" });
-      if (!res) { alert("Upload failed (permissions or bucket). Check console."); return; }
-      const { path, signedUrl } = res;
-      insertHtmlAtCaret(`<img class="bulletin-inline-img" data-supa-path="${escapeHtml(path)}" src="${escapeHtml(signedUrl)}" alt="" loading="lazy">`);
-      console.log("📸 uploaded resized image", { path, bytes: resized.blob.size, w: resized.w, h: resized.h });
-      fileInput.value = "";
+  function getScriptDir(){
+    // Prefer the script tag that loaded this file (works with ?v= cache busters)
+    let script = document.currentScript;
+    if (!script) {
+      const all = Array.from(document.scripts);
+      script = all.find(s => (s.src||"").includes("home.js")) || all[all.length-1];
     }
+    const src = script?.src || "";
+    const url = new URL(src, window.location.href);
+    const parts = url.pathname.split("/");
+    parts.pop(); // remove file name
+    const dir = parts.join("/") + "/";
+    return url.origin + dir; // absolute dir
+  }
 
-    insertBtn?.addEventListener("click", addSelectedFile);
-    fileInput?.addEventListener("change", addSelectedFile); // auto upload on choose
-
-    postBtn?.addEventListener("click", async () => {
-      try{
-        const { data: { user } } = await supabase.auth.getUser();
-        const isEdit = postBtn?.dataset?.mode === "edit";
-        const editId = postBtn?.dataset?.editId || null;
-        if (!user) { alert("Please sign in."); return; }
-        const typeSel = document.getElementById("composer-type");
-        const editor = document.getElementById("composer-editor");
-        const raw = String(editor?.innerHTML || "").trim();
-        const clean = sanitizeHtml(raw);
-        if (!clean) { alert("Write something first."); return; }
-
-        let saveType = "general", help = false, review_target_type = null, review_target_id = null, rating = null;
-        const t = (typeSel?.value || "general");
-        if (t === "review"){
-          saveType = "review";
-          review_target_type = document.getElementById("review-target-type")?.value || null;
-          review_target_id = document.getElementById("review-target-id")?.value?.trim() || null;
-          rating = parseInt(document.getElementById("review-rating")?.value || "0", 10);
-          if (!review_target_type || !review_target_id || !rating) { alert("Select review target + rating."); return; }
-        } else if (t === "help"){
-          saveType = "general"; help = true;
-        }
-
-        const row = { user_id: user.id, type: saveType, message: clean, help, review_target_type, review_target_id, rating };
-        let data = null, error = null;
-        if (isEdit && editId){
-          ({ data, error } = await supabase.from('bulletins').update(row).eq('id', editId).eq('user_id', user.id).select('id').maybeSingle());
-        } else {
-          ({ data, error } = await supabase.from('bulletins').insert(row).select('id').single());
-        }
-        if (error) { console.error("post insert error", error); alert(error.message || "Failed to post."); return; }
-        document.querySelector("#bulletin-modal")?.classList.remove("open");
-        if (postBtn){ postBtn.textContent = "Post"; delete postBtn.dataset.mode; delete postBtn.dataset.editId; }
-        document.documentElement.style.overflow = "";
-        await FEED.prependById(supabase, data.id);
-      }catch(err){
-        console.error("post handler failed", err);
-      }
+  async function trySrc(src){
+    return new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.id = "bulletin-composer-script";
+      s.src = src;
+      s.async = true;
+      s.onload = () => { console.log("📥 bulletin_composer.js loaded from", src); resolve(true); };
+      s.onerror = () => { resolve(false); };
+      document.head.appendChild(s);
     });
   }
 
@@ -398,29 +258,46 @@
       cycle++; loading = false;
     }
 
-    async function prependById(supabase, id){
-      const row = await fetchById(supabase, id);
-      if (row) container().insertBefore(await renderBulletinCard(supabase, row), container().firstChild);
+    async function prependById(supabaseOrId, maybeId){
+      const supa = (maybeId === undefined ? (window.supabase || null) : supabaseOrId);
+      const id = (maybeId === undefined ? supabaseOrId : maybeId);
+      if (!supa) { console.warn('prependById: supabase not ready'); return; }
+      const row = await fetchById(supa, id);
+      if (row) container().insertBefore(await renderBulletinCard(supa, row), container().firstChild);
     }
 
-    async function fetchById(supabase, id){
+    
+async function fetchById(supabase, id){
       const { data, error } = await supabase
         .from("bulletins")
-        .select("id, user_id, message, help, type, review_target_type, review_target_id, rating, created_at, profiles:profiles!bulletins_user_id_fkey(id,full_name,avatar_url), bulletin_comments(count)")
-        .eq("id", id).maybeSingle();
+        .select(`id, user_id, message, help, type, review_target_type, review_target_id, rating, bulletin_gallery, created_at,
+                 profiles:bulletins_user_id_fkey(id,full_name,avatar_url),
+                 bulletin_comments(count)`)
+        .eq("id", id)
+        .maybeSingle();
       if (error) { console.warn("fetchById error", error); return null; }
       return data;
     }
 
-    async function fetchBulletins(supabase, limit, start){
-      const { data, error } = await supabase
+
+    
+async function fetchBulletins(supabase, limit, start){
+      const f = (window.__FEED_FILTER__ || 'all');
+      let q = supabase
         .from("bulletins")
-        .select("id, user_id, message, help, type, review_target_type, review_target_id, rating, created_at, profiles:profiles!bulletins_user_id_fkey(id,full_name,avatar_url), bulletin_comments(count)")
+        .select(`id, user_id, message, help, type, review_target_type, review_target_id, rating, bulletin_gallery, created_at,
+                 profiles:bulletins_user_id_fkey(id,full_name,avatar_url),
+                 bulletin_comments(count)`)
         .order("created_at", { ascending:false })
         .range(start, start + limit - 1);
+      if (f === 'help') q = q.eq('help', true);
+      else if (f === 'id_request') q = q.eq('type', 'id_request');
+      else if (f === 'review') q = q.eq('type', 'review');
+      const { data, error } = await q;
       if (error) { console.warn("bulletins fetch error", error); return []; }
       return data || [];
     }
+
 
     async function resolveReviewTargetName(supabase, type, id){
       if (!type || !id) return null;
@@ -440,13 +317,15 @@
     }
 
     async function renderBulletinCard(supabase, b){
+      const galleryHtml = buildGalleryHtml(b);
       const wrap = document.createElement("div");
       wrap.className = "card border-0 shadow-sm rounded-4 bulletin-card";
       const name = b?.profiles?.full_name || "User";
       const when = new Date(b.created_at).toLocaleString();
       const count = Array.isArray(b.bulletin_comments) && b.bulletin_comments[0]?.count ? b.bulletin_comments[0].count : 0;
-      const helpBadge = (b.type === "general" && b.help) ? `<span class="badge bg-danger ms-1">Help</span>` : "";
-      const reviewBadge = (b.type === "review") ? `<span class="badge bg-primary ms-1">Review</span>` : "";
+      const helpBadge = (b && b.help) ? `<span class="badge bg-danger ms-1">Help</span>` : "";
+      const idBadge = (b && b.type === "id_request") ? `<span class="badge bg-warning text-dark ms-1">ID Request</span>` : "";
+      const reviewBadge = (b && b.type === "review") ? `<span class="badge bg-success ms-1">Review</span>` : "";
       const stars = (b.type === "review" && b.rating) ? ` <span class="text-warning">${"★".repeat(b.rating)}${"☆".repeat(5-b.rating)}</span>` : "";
       const reviewOf = (b.type === "review") ? `<span class="text-muted small" data-role="target-name">• reviewing…</span>` : "";
 
@@ -455,19 +334,18 @@
           <div class="bulletin-meta">
             <div class="bulletin-avatar d-inline-block" style="width:32px;height:32px;"></div>
             <strong>${profileLinkHtml(b.user_id, name)}</strong>
-            ${helpBadge}${reviewBadge}${stars}
+            ${helpBadge}${idBadge}${reviewBadge}${stars}
             ${reviewOf}
             <span class="text-muted small ms-2">${escapeHtml(when)}</span>
             <span class="text-muted small ms-auto" data-role="comment-count">${count} comment${count===1?"":"s"}</span>
           </div>
-          <div class="bulletin-content">${b.message || ""}</div>
+          <div class="bulletin-content">${b.message || ""}</div>${galleryHtml}
           <div class="mt-3 d-flex gap-2 flex-wrap">
             <button class="btn btn-sm btn-outline-secondary" data-role="comment-btn" data-id="${b.id}">Comment</button>
             <button class="btn btn-sm btn-outline-primary" data-role="view-comments" data-id="${b.id}">View comments (${count})</button>
-          
             <button class="btn btn-sm btn-outline-secondary d-none" data-role="edit-bulletin" data-id="${b.id}">Edit</button>
             <button class="btn btn-sm btn-outline-danger d-none" data-role="delete-bulletin" data-id="${b.id}">Delete</button>
-</div>
+          </div>
           <div class="mt-2 d-none" data-role="comment-box" data-id="${b.id}">
             <div class="input-group">
               <input type="text" class="form-control form-control-sm" placeholder="Write a comment...">
@@ -477,9 +355,7 @@
           <div class="mt-2 d-none" data-role="comments" data-id="${b.id}"></div>
         </div>`;
 
-      
-      // Render poster avatar
-      // Owner actions (show edit/delete to post author)
+      // Owner actions (show edit/delete to post author) — unchanged
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user && user.id === b.user_id) {
@@ -487,31 +363,23 @@
           const delBtn  = wrap.querySelector('[data-role="delete-bulletin"]');
           editBtn?.classList.remove('d-none');
           delBtn?.classList.remove('d-none');
-          editBtn?.addEventListener('click', () => {
-            const openBtn = document.getElementById('open-bulletin-modal');
-            openBtn?.click();
-            const typeSel = document.getElementById('composer-type');
-            const reviewBox = document.getElementById('review-controls');
-            const editor = document.getElementById('composer-editor');
-            if (typeSel) typeSel.value = b.type || 'general';
-            if (reviewBox){
-              if (b.type === 'review'){
-                reviewBox.classList.remove('d-none');
-                const rt = document.getElementById('review-target-type');
-                const rid = document.getElementById('review-target-id');
-                const rr = document.getElementById('review-rating');
-                if (rt) rt.value = b.review_target_type || '';
-                if (rid) rid.value = b.review_target_id || '';
-                if (rr && b.rating) rr.value = String(b.rating);
-              } else {
-                reviewBox.classList.add('d-none');
-              }
+          editBtn?.addEventListener('click', async () => {
+            // Ensure composer script is loaded
+            if (!document.getElementById('bulletin-modal')){
+              try { await loadComposerScript(editBtn); } catch(e){ console.error('❌ Failed to load composer for edit', e); return; }
             }
-            if (editor) editor.innerHTML = b.message || '';
-            const postBtn = document.getElementById('composer-post');
-            if (postBtn){ postBtn.textContent = 'Save'; postBtn.dataset.mode = 'edit'; postBtn.dataset.editId = b.id; }
+            // Open composer with full payload (prefill-first in composer listener)
+            window.dispatchEvent(new CustomEvent('open-bulletin-composer', { detail: {
+              id: b.id,
+              type: b.type || 'general',
+              message: b.message || '',
+              review_target_type: b.review_target_type || '',
+              review_target_id: b.review_target_id || '',
+              rating: b.rating || null,
+              bulletin_gallery: Array.isArray(b.bulletin_gallery) ? b.bulletin_gallery : []
+            }}));
           });
-          delBtn?.addEventListener('click', async () => {
+delBtn?.addEventListener('click', async () => {
             if (!confirm('Delete this post?')) return;
             const { error } = await supabase.from('bulletins').delete().eq('id', b.id).eq('user_id', user.id);
             if (!error) wrap.remove();
@@ -519,6 +387,7 @@
         }
       } catch {}
 
+      // Avatar
       try {
         const av = wrap.querySelector('.bulletin-avatar');
         if (av) {
@@ -526,7 +395,9 @@
           av.innerHTML = avatarHtml(url, name, 32);
         }
       } catch {}
-    if (b.type === "review"){
+
+      // Review target name
+      if (b.type === "review"){
         (async() => {
           const target = await resolveReviewTargetName(supabase, b.review_target_type, b.review_target_id);
           const span = wrap.querySelector('[data-role="target-name"]');
@@ -534,6 +405,7 @@
         })();
       }
 
+      // Comments UI — unchanged
       const cbtn = wrap.querySelector('[data-role="comment-btn"]');
       const cbox = wrap.querySelector('[data-role="comment-box"]');
       const send = wrap.querySelector('[data-role="send-comment"]');
@@ -590,7 +462,6 @@
                   </div>
                   <div data-role="comment-text">${escapeHtml(c.message)}</div>
                   <div class="mt-1 d-flex gap-2 small">
-                    <button type="button" class="btn btn-link p-0" data-role="reply-comment" data-id="${c.id}" data-name="${escapeHtml(c.full_name)}">Reply</button>
                     <button type="button" class="btn btn-link p-0 d-none" data-role="edit-comment" data-id="${c.id}">Edit</button>
                     <button type="button" class="btn btn-link text-danger p-0 d-none" data-role="delete-comment" data-id="${c.id}">Delete</button>
                   </div>
@@ -602,83 +473,20 @@
                     </div>
                   </div>
                 </div>`).join("");
-            // Unhide edit/delete for own comments right after render
-            try{
-              const { data: { user } } = await supabase.auth.getUser();
-              list.querySelectorAll('[data-comment-id]').forEach(row => {
-                const uid = (row.getAttribute('data-user-id')||'').trim();
-                if (user && user.id === uid){
-                  row.querySelector('[data-role="edit-comment"]')?.classList.remove('d-none');
-                  row.querySelector('[data-role="delete-comment"]')?.classList.remove('d-none');
-                }
-              });
-            }catch{}
+              try{
+                const { data: { user } } = await supabase.auth.getUser();
+                list.querySelectorAll('[data-comment-id]').forEach(row => {
+                  const uid = (row.getAttribute('data-user-id')||'').trim();
+                  if (user && user.id === uid){
+                    row.querySelector('[data-role="edit-comment"]')?.classList.remove('d-none');
+                    row.querySelector('[data-role="delete-comment"]')?.classList.remove('d-none');
+                  }
+                });
+              }catch{}
             }
             list.dataset.loaded = "1";
           }
           vbtn.textContent = "Hide comments";
-            // Wire comment actions: reply, edit, save, cancel, delete
-            list.addEventListener("click", async (ev) => {
-              const btn = ev.target.closest("[data-role]");
-              if (!btn) return;
-              const role = btn.getAttribute("data-role");
-              const commentId = btn.getAttribute("data-id");
-              if (!role) return;
-
-              if (role === "reply-comment") {
-                const name = btn.getAttribute("data-name") || "";
-                const inp = cbox.querySelector("input");
-                cbox.classList.remove("d-none");
-                inp.value = (inp.value ? inp.value + " " : "") + "@" + name + " ";
-                inp.focus();
-              }
-
-              if (role === "edit-comment") {
-                const row = list.querySelector(`[data-comment-id="${commentId}"]`);
-                if (!row) return;
-                row.querySelector('[data-role="edit-row"]')?.classList.remove("d-none");
-              }
-
-              if (role === "cancel-edit") {
-                const row = list.querySelector(`[data-comment-id="${commentId}"]`);
-                if (!row) return;
-                row.querySelector('[data-role="edit-row"]')?.classList.add("d-none");
-              }
-
-              if (role === "save-comment") {
-                const row = list.querySelector(`[data-comment-id="${commentId}"]`);
-                if (!row) return;
-                const input = row.querySelector('input[type="text"]');
-                const newMsg = (input?.value || "").trim();
-                if (!newMsg) return;
-                try {
-                  const { data: { user } } = await supabase.auth.getUser();
-                  if (!user) { alert("Please sign in."); return; }
-                  const { error } = await supabase.from("bulletin_comments").update({ message: newMsg }).eq("id", commentId).eq("user_id", user.id);
-                  if (error) { alert(error.message || "Update failed."); return; }
-                  row.querySelector('[data-role="comment-text"]').textContent = newMsg;
-                  row.querySelector('[data-role="edit-row"]')?.classList.add("d-none");
-                } catch (e) { console.warn("save-comment failed", e); }
-              }
-
-              if (role === "delete-comment") {
-                try {
-                  const { data: { user } } = await supabase.auth.getUser();
-                  if (!user) { alert("Please sign in."); return; }
-                  if (!confirm("Delete this comment?")) return;
-                  const { error } = await supabase.from("bulletin_comments").delete().eq("id", commentId).eq("user_id", user.id);
-                  if (error) { alert(error.message || "Delete failed."); return; }
-                  const row = list.querySelector(`[data-comment-id="${commentId}"]`);
-                  if (row) row.remove();
-                  // Decrement counts
-                  const m = /(\d+)/.exec(countEl?.textContent || "0"); const current = m ? parseInt(m[1],10) : 0;
-                  const next = Math.max(0, current - 1);
-                  if (countEl) countEl.textContent = `${next} comment${next===1?"":"s"}`;
-                  vbtn.textContent = `View comments (${next})`;
-                } catch (e) { console.warn("delete-comment failed", e); }
-              }
-            }, { once: false });
-
         } else {
           list.classList.add("d-none");
           const m = /(\d+)/.exec(countEl?.textContent || "0"); const current = m ? parseInt(m[1],10) : 0;
@@ -687,7 +495,6 @@
       });
 
       try { await refreshSignedImages(window.supabase, wrap); } catch {}
-
       return wrap;
     }
 
@@ -753,7 +560,7 @@
         const { data } = await supabase.from("user_auctions").select("id, description, common_name, current_bid, starting_bid, end_date").order("created_at",{ascending:false}).limit(6);
         const items = data||[];
         wrap.innerHTML = `<div class="card-body">
-          <div class="d-flex align-items-center justify-content-between mb-2"><strong>Recent Auctions</strong>
+          <div class="d-flex alignments-center justify-content-between mb-2"><strong>Recent Auctions</strong>
             <a class="small text-decoration-none" href="#" data-role="see-auctions">See all</a></div>
           <div class="d-flex flex-column gap-2">
             ${items.length?items.map(a=>{const title=(a.description?.trim()||a.common_name?.trim()||"Auction");const bid=(a.current_bid??a.starting_bid??0);const money=Number(bid).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -808,7 +615,9 @@
     return { init, prependById };
   })();
 
-  
+  // Expose feed so bulletin_composer.js can prepend newly created posts
+  window.__HOME_FEED__ = FEED;
+
   /* ---- Avatar / Logo helpers ---- */
   function initialsFrom(name){
     const parts = String(name||"").trim().split(/\s+/).filter(Boolean);
@@ -845,127 +654,223 @@
       mount.innerHTML = avatarHtml(prof?.avatar_url || null, prof?.full_name || "");
     }catch(e){ /* ignore */ }
   }
-/* ---------------- HELPERS ---------------- */
-  function escapeHtml(str){ return String(str||"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function sanitizeHtml(html){
-    try{
-      const doc = new DOMParser().parseFromString(`<div>${html}</div>`,"text/html");
-      const root = doc.body.firstChild;
-      root.querySelectorAll("script,iframe,object,embed").forEach(n=>n.remove());
-      root.querySelectorAll("*").forEach(el=>{[...el.attributes].forEach(a=>{ if(/^on/i.test(a.name)) el.removeAttribute(a.name); });});
-      return root.innerHTML;
-    }catch(e){ return html; }
+
+
+  /* ---------------- HELPERS ---------------- */
+  function escapeHtml(str){
+    return String(str || '')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
-  function insertHtmlAtCaret(html){
-    const sel=window.getSelection(); const ed=document.getElementById("composer-editor");
-    if(!sel||sel.rangeCount===0){ ed?.insertAdjacentHTML("beforeend", html); return; }
-    const range=sel.getRangeAt(0); range.deleteContents();
-    const frag=range.createContextualFragment(html); range.insertNode(frag); sel.collapseToEnd();
+  /* ---------- Bulletin gallery thumbnails ---------- */
+  function buildGalleryHtml(b){
+    try{
+      const arr = Array.isArray(b && b.bulletin_gallery) ? b.bulletin_gallery : [];
+      if (!arr.length) return "";
+      const items = arr.slice(0, 12).map((p) => {
+        if (!p) return "";
+        const isUrl = /^https?:\/\//i.test(p);
+        if (isUrl){
+          const u = escapeHtml(p);
+          return '<a class="bulletin-thumb" href="'+u+'" target="_blank" rel="noopener">'
+               +   '<img src="'+u+'" alt="">'
+               + '</a>';
+        } else {
+          const sp = escapeHtml(p);
+          return '<a class="bulletin-thumb" data-supa-path="'+sp+'" href="#">'
+               +   '<img data-supa-path="'+sp+'" alt="">'
+               + '</a>';
+        }
+      }).join("");
+      return '<div class="bulletin-gallery">'+items+'</div>';
+    }catch(e){ console.warn("buildGalleryHtml failed", e); return ""; }
+  }
+  function attachGalleryLinkClicks(supabase, scopeEl){
+    try{
+      (scopeEl || document).querySelectorAll('.bulletin-gallery a[data-supa-path]').forEach((a)=>{
+        a.addEventListener('click', async (ev)=>{
+          ev.preventDefault();
+          const path = a.getAttribute('data-supa-path');
+          if (!path || !supabase) return;
+          try{
+            const r = await supabase.storage.from('bulletin-images').createSignedUrl(path, 60*60);
+            if (r && r.data && r.data.signedUrl) window.open(r.data.signedUrl, "_blank", "noopener");
+          }catch(e){ console.warn("open signed image failed", e); }
+        }, { passive:false });
+      });
+    }catch(e){}
   }
 
-  // Resize an image client-side to keep bucket small
-  async function resizeImageFile(file, { maxW=512, maxH=512, mime="image/webp", quality=0.82 } = {}){
-    const dataUrl = await new Promise((res, rej) => {
-      const fr = new FileReader();
-      fr.onload = () => res(fr.result);
-      fr.onerror = rej;
-      fr.readAsDataURL(file);
-    });
-    const img = await new Promise((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = dataUrl;
-    });
-    let { width, height } = img;
-    const ratio = Math.min(maxW / width, maxH / height, 1);
-    const w = Math.max(1, Math.round(width * ratio));
-    const h = Math.max(1, Math.round(height * ratio));
-    const canvas = document.createElement("canvas");
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, w, h);
-    const blob = await new Promise(res => canvas.toBlob(res, mime, quality));
-    return { blob, w, h };
-  }
-
-  // Upload a blob to storage and create a signed URL
-  async function uploadAndSign(supabase, blobOrFile, { originalName="upload", forceExt=".webp", contentType="image/webp" } = {}){
+async function refreshSignedImages(supabase, scopeEl){
     try{
-      const { data:{ user } } = await supabase.auth.getUser(); if(!user) { console.warn("no user"); return null; }
-      const bucket="bulletin-images"; const ts=Date.now();
-      const base = originalName.replace(/\.[^.]+$/,"").replace(/[^a-zA-Z0-9._-]/g,"_");
-      const path=`${user.id}/${ts}_${base}${forceExt}`;
-      const up=await supabase.storage.from(bucket).upload(path, blobOrFile, { upsert:false, contentType, cacheControl:"3600" });
-      if(up.error) { console.warn("upload error", up.error); return null; }
-      const sig=await supabase.storage.from(bucket).createSignedUrl(path, 60*60*24*7);
-      if(sig.error) { console.warn("sign error", sig.error); return null; }
-      return { path, signedUrl: sig.data.signedUrl };
-    }catch(e){ console.warn("uploadAndSign failed", e); return null; }
-  }
-
-  async function refreshSignedImages(supabase, scopeEl){
-    try{
-      const imgs=(scopeEl||document).querySelectorAll("img[data-supa-path]"); if(!imgs.length) return;
-      for(const img of imgs){ const path=img.getAttribute("data-supa-path"); if(!path) continue;
-        const sig=await supabase.storage.from("bulletin-images").createSignedUrl(path, 60*60*24*7);
-        if(!sig.error) img.src=sig.data.signedUrl;
+      const imgs = (scopeEl || document).querySelectorAll('img[data-supa-path]');
+      if (!imgs.length) return;
+      for (const img of imgs){
+        const path = img.getAttribute('data-supa-path');
+        if (!path) continue;
+        const sig = await supabase.storage
+          .from('bulletin-images')
+          .createSignedUrl(path, 60*60*24*7);
+        if (!sig.error) img.src = sig.data.signedUrl;
       }
-    }catch(e){ console.warn("refreshSignedImages failed", e); }
-  }
-  console.log("✅ home-post-guard.js loaded (post button guard + idempotency)");
-  if (window.__POST_GUARD_WIRED__) return;
-  window.__POST_GUARD_WIRED__ = true;
-
-  function simpleHash(s){
-    let h = 5381, i = s.length; while(i) h = (h*33) ^ s.charCodeAt(--i); return (h>>>0).toString(36);
-  }
-  function sanitizeHtml(html){
-    try{
-      const doc = new DOMParser().parseFromString(`<div>${html}</div>`,"text/html");
-      const root = doc.body.firstChild;
-      root.querySelectorAll("script,iframe,object,embed").forEach(n=>n.remove());
-      root.querySelectorAll("*").forEach(el=>{[...el.attributes].forEach(a=>{ if(/^on/i.test(a.name)) el.removeAttribute(a.name); });});
-      return root.innerHTML.trim();
-    }catch{ return String(html||"").trim(); }
-  }
-
-  document.addEventListener("click", async function(e){
-    const btn = e.target.closest("#composer-post");
-    if (!btn) return;
-    if (btn.disabled) { e.preventDefault(); e.stopPropagation(); return; }
-    try{
-      const editor = document.getElementById("composer-editor");
-      const typeSel = document.getElementById("composer-type");
-      const clean = sanitizeHtml(editor?.innerHTML || "");
-      const type = (typeSel?.value || "general");
-      const tgtType = document.getElementById("review-target-type")?.value || "";
-      const tgtId = document.getElementById("review-target-id")?.value || "";
-      const rating = document.getElementById("review-rating")?.value || "";
-
-      if (!window.supabase || !window.supabase.auth) return; // let original handler run
-      const { data:{ user } } = await window.supabase.auth.getUser();
-      if (!user) return;
-
-      const sig = simpleHash(`${user.id}|${type}|${tgtType}|${tgtId}|${rating}|${clean}`);
-      const key = `post:${user.id}:${sig}`;
-      if (sessionStorage.getItem(key)){
-        e.preventDefault(); e.stopPropagation();
-        alert("Looks like you already posted that just now.");
-        return;
-      }
-      // mark and auto-clear
-      sessionStorage.setItem(key, Date.now().toString());
-      setTimeout(()=>sessionStorage.removeItem(key), 20000);
-
-      // Single-flight: disable briefly so double clicks don't fire multiple inserts
-      btn.disabled = true;
-      const old = btn.textContent;
-      btn.textContent = "Posting…";
-      setTimeout(()=>{ btn.disabled = false; btn.textContent = old; }, 5000);
-      // Allow your existing click handler to continue (we're augmenting, not replacing)
-    }catch(err){
-      console.warn("post guard error", err);
+    }catch(e){
+      console.warn('refreshSignedImages failed', e);
     }
-  }, true); // capture: run before original handler
+  }
+})();
+
+// --- bulletin lightbox once ---
+(function(){ 
+  if (window.__bulletinLightboxOnce) return; 
+  window.__bulletinLightboxOnce = true;
+
+  const SIGN_CACHE = new Map(); // path -> signedUrl
+  const BUCKET = 'bulletin-images';
+
+  const qs  = (sel, root=document) => root.querySelector(sel);
+  const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  function ensureModal(){
+    if (qs('#galleryModal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'galleryModal';
+    modal.className = 'modal fade';
+    modal.tabIndex = -1;
+    modal.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content bg-dark text-white position-relative">
+          <div class="modal-header border-0">
+            <h6 class="modal-title">Image</h6>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body d-flex justify-content-center align-items-center" style="min-height:60vh;overflow:hidden;">
+            <img id="galleryModalImage" src="" alt="" style="max-width:100%;max-height:80vh; transform-origin:center center;"/>
+          </div>
+          <div class="modal-footer justify-content-between">
+            <div class="btn-group">
+              <button id="btn-prev" class="btn btn-outline-light">‹ Prev</button>
+              <button id="btn-next" class="btn btn-outline-light">Next ›</button>
+            </div>
+            <div class="btn-group">
+              <button id="btn-zoom-out" class="btn btn-outline-light">-</button>
+              <button id="btn-zoom-reset" class="btn btn-outline-light">Reset</button>
+              <button id="btn-zoom-in" class="btn btn-outline-light">+</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+
+  async function signIfNeeded(urlOrPath){
+    if (!urlOrPath) return urlOrPath;
+    if (/^https?:\/\//i.test(urlOrPath)) return urlOrPath;
+    if (SIGN_CACHE.has(urlOrPath)) return SIGN_CACHE.get(urlOrPath);
+    const sb = window.supabase;
+    try{
+      const r = await sb.storage.from(BUCKET).createSignedUrl(urlOrPath, 60*60);
+      const u = r?.data?.signedUrl || urlOrPath;
+      SIGN_CACHE.set(urlOrPath, u);
+      return u;
+    }catch{ return urlOrPath; }
+  }
+
+  function collectGallery(clickedEl){
+    const gallery = clickedEl.closest('.bulletin-gallery');
+    if (!gallery) return { list: [], index: 0 };
+    const anchors = qsa('a.bulletin-thumb, .bulletin-gallery a[href]', gallery);
+    const images  = qsa('img.gallery-thumb, .bulletin-gallery img', gallery);
+    const nodes = anchors.length ? anchors : images;
+    const list = nodes.map(el => {
+      const path = el.getAttribute('data-supa-path') || el.dataset?.supaPath;
+      const href = el.getAttribute('href') || el.getAttribute('src');
+      return path || href || '';
+    }).filter(Boolean);
+    const index = Math.max(0, nodes.indexOf(clickedEl.closest('a, img')));
+    return { list, index };
+  }
+
+  function openModalWith(urls, start=0){
+    ensureModal();
+    const img = qs('#galleryModalImage');
+    let i = start|0, scale = 1, panX = 0, panY = 0;
+
+    function setImg(idx){
+      i = (idx + urls.length) % urls.length;
+      img.dataset.index = i;
+      img.src = urls[i];
+      reset(false);
+    }
+    function reset(apply = true){
+      scale = 1; panX = 0; panY = 0;
+      if (apply) applyTransform();
+    }
+    function applyTransform(){
+      img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      img.style.cursor = scale>1 ? 'grab' : 'default';
+    }
+    function next(){ setImg(i+1); }
+    function prev(){ setImg(i-1); }
+
+    let isDown = false, lastX=0, lastY=0;
+    function onDown(e){ isDown = true; (img.style.cursor='grabbing'); const pt = (e.touches?.[0])||e; lastX=pt.clientX; lastY=pt.clientY; }
+    function onMove(e){ if(!isDown||scale<=1) return; const pt=(e.touches?.[0])||e; panX += (pt.clientX-lastX); panY += (pt.clientY-lastY); lastX=pt.clientX; lastY=pt.clientY; applyTransform(); }
+    function onUp(){ isDown = false; if(scale>1) img.style.cursor='grab'; }
+
+    qs('#btn-next').onclick = next;
+    qs('#btn-prev').onclick = prev;
+    qs('#btn-zoom-in').onclick = () => { scale = Math.min(6, scale + 0.2); applyTransform(); };
+    qs('#btn-zoom-out').onclick = () => { scale = Math.max(1, scale - 0.2); applyTransform(); };
+    qs('#btn-zoom-reset').onclick = () => { reset(true); };
+
+    img.onmousedown = onDown;
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    img.ontouchstart = onDown;
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onUp);
+    window.addEventListener('keydown', (e)=>{
+      if (!document.body.classList.contains('modal-open')) return;
+      if (e.key === 'ArrowRight') next();
+      else if (e.key === 'ArrowLeft') prev();
+      else if (e.key === '+') { scale = Math.min(6, scale + 0.2); applyTransform(); }
+      else if (e.key === '-') { scale = Math.max(1, scale - 0.2); applyTransform(); }
+      else if (e.key === '0') reset(true);
+    });
+
+    // Bootstrap or fallback
+    const modalEl = qs('#galleryModal');
+    let Modal = window.bootstrap?.Modal || (window.bootstrap && window.bootstrap.Modal);
+    const inst = Modal ? Modal.getOrCreateInstance(modalEl) : null;
+    if (inst) inst.show(); 
+    else {
+      modalEl.classList.add('show'); modalEl.style.display='block'; modalEl.setAttribute('aria-modal','true'); modalEl.removeAttribute('aria-hidden');
+      document.body.classList.add('modal-open');
+      if (!qs('#galleryBackdrop')) { const bd=document.createElement('div'); bd.id='galleryBackdrop'; bd.className='modal-backdrop fade show'; bd.style.display='block'; document.body.appendChild(bd); }
+      qs('#galleryModal .btn-close')?.addEventListener('click', ()=>{ modalEl.classList.remove('show'); modalEl.style.display='none'; document.body.classList.remove('modal-open'); const bd=qs('#galleryBackdrop'); if (bd) bd.remove(); }, { once:true });
+    }
+
+    setImg(i);
+  }
+
+  async function handleGalleryClick(e){
+    const target = e.target.closest('.bulletin-gallery a, .bulletin-gallery img, img.gallery-thumb');
+    if (!target) return;
+    const isLeft = (e.button === 0 || e.button == null);
+    if (!isLeft || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { list, index } = collectGallery(target);
+    if (!list.length) return;
+    const urls = await Promise.all(list.map(signIfNeeded));
+    openModalWith(urls, index);
+  }
+
+  // Install capture-phase listener once
+  if (document.readyState !== 'loading'){ ensureModal(); document.addEventListener('click', handleGalleryClick, { capture:true }); }
+  else document.addEventListener('DOMContentLoaded', function(){ ensureModal(); document.addEventListener('click', handleGalleryClick, { capture:true }); });
 })();

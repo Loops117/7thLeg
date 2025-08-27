@@ -409,16 +409,12 @@ try{
 })();
 
 // ===== Profile Analytics (compact stats + pie) =====
+
 function renderProfileAnalytics(inventory, opts={}){
   try{
-    const { uid } = opts || {};
-    if (uid && typeof __currentProfileId !== 'undefined' && __currentProfileId && uid !== __currentProfileId) { return; }
     const totalsEl = document.getElementById("profile-stats-total");
     const uniqueEl = document.getElementById("profile-stats-unique");
     const typesWrap = document.getElementById("profile-stats-types");
-    const legendEl = document.getElementById("profile-stats-legend");
-    const pieCanvas = document.getElementById("profile-type-pie");
-    if (!totalsEl && !pieCanvas) return;
 
     const items = Array.isArray(inventory) ? inventory : [];
     const total = items.length;
@@ -439,26 +435,8 @@ function renderProfileAnalytics(inventory, opts={}){
           ).join(" ")
         : '<span class="text-muted small">No inventory yet.</span>';
     }
-
-    // Wait for Chart.js if needed
-    if (!window.Chart) { setTimeout(() => renderProfileAnalytics(inventory, opts), 200); return; }
-
-    if (pieCanvas && total > 0 && Object.keys(byType).length > 0) {
-      const labels = Object.keys(byType);
-      const values = labels.map(k => byType[k]);
-      const data = { labels, datasets: [{ data: values }] };
-      new Chart(pieCanvas.getContext('2d'), { type: 'pie', data, options: { plugins:{ legend:{ display:false } } } });
-      if (legendEl) legendEl.innerHTML = labels.map((k, i) => `<span class="badge rounded-pill border bg-light text-dark me-1">${k}: ${values[i]}</span>`).join("");
-    } else if (pieCanvas && total === 0) {
-      const ctx = pieCanvas.getContext('2d');
-      ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto';
-      ctx.fillStyle = '#6c757d';
-      ctx.fillText('No inventory yet.', 10, 20);
-    }
   }catch(e){ console.warn('Stats render error:', e); }
 }
-
-
 // Cleaned analytics fallback (single instance)
 document.addEventListener("DOMContentLoaded", () => {
   try {
@@ -481,3 +459,54 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {}
   }, 400);
 });
+
+
+// ---- inline pie helpers ----
+function piePalette(n){
+  // pleasant categorical palette (Bootstrap-ish hues)
+  const base = ['#0d6efd','#198754','#6f42c1','#fd7e14','#20c997','#dc3545','#0dcaf0','#6c757d','#6610f2','#ffc107'];
+  const out = [];
+  for (let i=0;i<n;i++){ out.push(base[i % base.length]); }
+  return out;
+}
+
+function pieDataURI(labels, values, opts={}){
+  const width = opts.width || 260;
+  const height = opts.height || 180;
+  const cx = width/2, cy = height/2;
+  const r = Math.min(width, height) * 0.45;
+  const total = values.reduce((a,b)=>a+(+b||0),0);
+  const colors = (opts.colors && opts.colors.length ? opts.colors : piePalette(values.length));
+  let a0 = -Math.PI/2; // start at top
+  const parts = [];
+  function polar(a){ return [cx + r*Math.cos(a), cy + r*Math.sin(a)]; }
+  for (let i=0;i<values.length;i++){
+    const v = +values[i] || 0;
+    const frac = total>0 ? v/total : 0;
+    const a1 = a0 + frac * Math.PI*2;
+    const [x0,y0] = polar(a0);
+    const [x1,y1] = polar(a1);
+    const laf = (a1 - a0) > Math.PI ? 1 : 0;
+    const path = `M ${cx} ${cy} L ${x0} ${y0} A ${r} ${r} 0 ${laf} 1 ${x1} ${y1} Z`;
+    const fill = colors[i];
+    parts.push(`<path d="${path}" fill="${fill}" stroke="white" stroke-width="1"/>`);
+    a0 = a1;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${parts.join("")}</svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+// Lightbox controls
+function setModalImage(idx){
+  const list = Array.isArray(window.galleryImages) ? window.galleryImages : [];
+  const url = list[idx];
+  const img = document.getElementById("galleryModalImage");
+  if (!img) return;
+  if (url){
+    img.src = url;
+    img.dataset.index = String(idx);
+  } else {
+    // fallback: clear or keep previous to avoid broken icon
+    if (!img.src) img.src = "";
+  }
+}

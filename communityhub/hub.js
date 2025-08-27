@@ -196,6 +196,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // expose for boot
+  window.loadAdRail = loadAdRail;
+
+
 
   async function wirePromoCard() {
     try {
@@ -243,6 +247,10 @@ document.addEventListener("DOMContentLoaded", () => {
       console.warn("wirePromoCard failed", e);
     }
   }
+
+  // expose for boot
+  window.wirePromoCard = wirePromoCard;
+
 
   // Inject header/footer, then init auth ONCE, then load module
   includeHTML(async () => {
