@@ -39,17 +39,17 @@
   }
 </style>
 
+
+
+
 <div class="mb-4">
   <div class="d-flex justify-content-between align-items-center">
     <div class="d-flex align-items-center gap-2">
-      <div id="profile-avatar" class="d-none" style="width:48px;height:48px;"></div>
-      <h3 class="fw-bold mb-0" id="profile-name">Loading...</h3>
+
+
     </div>
-    <form class="d-flex" id="profile-search-form" style="max-width: 280px;">
+    <form class="d-flex" id="profile-search-form" style="max-width: 600px; width: 600px;">
       <input class="form-control me-2" id="profile-search" placeholder="Search users" type="text" />
-      <button class="btn btn-sm btn-primary" type="submit">
-        Search
-      </button>
     </form>
     <ul class="list-group position-absolute w-100 mt-1" id="search-dropdown" style="z-index:1000; display: none;">
     </ul>
@@ -57,13 +57,28 @@
       My Profile
     </button>
   </div>
-  <p class="text-muted" id="profile-role">
-  </p>
+
 </div>
 
-<!-- Combined Badges, Rating + Analytics -->
-<div class="card mb-4 border-0 shadow-sm rounded-4" id="profile-analytics">
-  <div class="card-body p-3 p-md-4">
+
+<!-- Profile Card/Information -->
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body">
+
+    <div id="profile-avatar" class="d-none" style="width:48px;height:48px;"></div>
+    <h3 class="fw-bold mb-0" id="profile-name">Loading...</h3>
+
+
+    <div class="text-muted d-flex align-items-center gap-2 small">
+      <span id="profile-role"></span>
+      <span class="opacity-50">•</span>
+      <span>Joined: <span id="profile-joined">—</span></span>
+    </div>
+
+
+
+
+
 
     <!-- badges + rating row -->
     <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
@@ -75,32 +90,13 @@
       </div>
     </div>
 
-    <!-- analytics row -->
-    <div class="row g-3 align-items-stretch">
-      <div class="col-6 col-md-3">
-        <div class="stat-tile rounded-3 p-3">
-          <div class="label">Species Tracked</div>
-          <div class="value" id="profile-stats-total">—</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="stat-tile rounded-3 p-3">
-          <div class="label">Unique Species</div>
-          <div class="value" id="profile-stats-unique">—</div>
-        </div>
-      </div>
-        </div>
-      </div>
-      <div class="col-12">
-        <div class="viz-card rounded-3 p-3">
-          <div class="label mb-2">Counts</div>
-          <div id="profile-stats-types" class="d-flex flex-wrap gap-2"></div>
-        </div>
-      </div>
-    </div>
+    <!-- Levels -->
+    <div id="profile-levels"></div>
+
 
   </div>
 </div>
+
 
 <!-- About Me -->
 <div class="card shadow-sm border-0 mb-4">

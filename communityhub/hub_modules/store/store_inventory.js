@@ -179,8 +179,8 @@ export async function init(options = {}) {
         </div>
         <div class="card-body pb-2">
           <div class="d-flex justify-content-between align-items-start mb-1">
-            <div>
-              <div class="fw-semibold">${title}</div>
+            <div class="flex-grow-1 me-2">
+              <div class="fw-semibold">${isDry && editable ? `<input type="text" class="form-control form-control-sm w-100" data-field="dry_name" value="${safe(l.dry_name || "")}" placeholder="Product name">` : title}</div>
               <div class="small text-muted">${sub}</div>
             </div>
             <div>${activeBadge}</div>

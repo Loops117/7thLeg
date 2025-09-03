@@ -355,6 +355,9 @@ async function fetchBulletins(supabase, limit, start){
           <div class="mt-2 d-none" data-role="comments" data-id="${b.id}"></div>
         </div>`;
 
+      // Render vote arrows for this bulletin
+      try { await renderBulletinVotes(supabase, wrap, b); } catch(e){ console.warn('bulletin votes mount failed', e); }
+
       // Owner actions (show edit/delete to post author) — unchanged
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -453,7 +456,7 @@ delBtn?.addEventListener('click', async () => {
             if (!items.length){
               list.innerHTML = `<div class="text-muted small">No comments yet.</div>`;
             } else {
-              list.innerHTML = items.map(c => `
+list.innerHTML = items.map(c => `
                 <div class="border rounded-3 p-2 mb-2" data-comment-id="${c.id}" data-user-id="${c.user_id}">
                   <div class="d-flex align-items-center gap-2 mb-1">
                     ${avatarHtml(c.avatar_url, c.full_name, 24)}
@@ -473,6 +476,14 @@ delBtn?.addEventListener('click', async () => {
                     </div>
                   </div>
                 </div>`).join("");
+              // attach vote controls to each comment row
+              try {
+                list.querySelectorAll('[data-comment-id]').forEach(row => {
+                  const cid = row.getAttribute('data-comment-id');
+                  renderCommentVotes(supabase, row, cid);
+                });
+              } catch(e) { console.warn('comment votes render failed', e); }
+
               try{
                 const { data: { user } } = await supabase.auth.getUser();
                 list.querySelectorAll('[data-comment-id]').forEach(row => {
@@ -873,4 +884,175 @@ async function refreshSignedImages(supabase, scopeEl){
   // Install capture-phase listener once
   if (document.readyState !== 'loading'){ ensureModal(); document.addEventListener('click', handleGalleryClick, { capture:true }); }
   else document.addEventListener('DOMContentLoaded', function(){ ensureModal(); document.addEventListener('click', handleGalleryClick, { capture:true }); });
+})();
+
+
+/* ---------------- VOTE HELPERS ---------------- */
+function voteSvgButton(type, label){
+  const isUp = type === 'up';
+  const points = isUp ? "14,3 26,25 2,25" : "2,3 26,3 14,25";
+  const textY = isUp ? 18 : 15;
+  return `<button class="vote-btn ${isUp?'up':'down'}" data-vote="${type}" aria-label="${type === 'up' ? '+1' : '-1'}">
+    <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" role="img" focusable="false">
+      <polygon points="${points}" stroke-width="2" />
+      <text x="14" y="${textY}" text-anchor="middle" dominant-baseline="middle">${label}</text>
+    </svg>
+  </button>`;
+}
+
+async function upsertReaction(supabase, { targetType, targetId, reactionType }){
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { alert("Please sign in."); return { error: { message: "not-signed-in" } }; }
+  // Toggle model: insert, switch, or delete to neutral
+  const { data: existing, error: fetchErr } = await supabase
+    .from('points_reactions')
+    .select('id, reaction_type')
+    .eq('voter_id', user.id)
+    .eq('target_type', targetType)
+    .eq('target_id', targetId)
+    .limit(1)
+    .maybeSingle();
+  if (fetchErr && fetchErr.code !== 'PGRST116') {
+    return { error: fetchErr };
+  }
+  if (!existing){
+    const { error } = await supabase.from('points_reactions').insert({
+      voter_id: user.id, target_type: targetType, target_id: targetId, reaction_type: reactionType
+    });
+    return { error };
+  } else if (existing.reaction_type === reactionType){
+    const { error } = await supabase.from('points_reactions').delete().eq('id', existing.id);
+    return { error };
+  } else {
+    const { error } = await supabase.from('points_reactions').update({ reaction_type: reactionType }).eq('id', existing.id);
+    return { error };
+  }
+}
+
+async function fetchVoteScore(supabase, targetType, targetId){
+  const { data, error } = await supabase
+    .from('points_reactions')
+    .select('reaction_type')
+    .eq('target_type', targetType)
+    .eq('target_id', targetId)
+    .limit(10000);
+  if (error || !data) return 0;
+  let up = 0, down = 0;
+  for (const r of data){ if (r.reaction_type==='up') up++; else if (r.reaction_type==='down') down++; }
+  return up - down;
+}
+
+async function markUserSelection(supabase, rootEl, targetType, targetId){
+  try{
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('points_reactions')
+      .select('reaction_type')
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .eq('voter_id', user.id)
+      .maybeSingle();
+    rootEl.querySelectorAll('.vote-btn').forEach(b=>b.classList.remove('selected'));
+    if (data && data.reaction_type){
+      const btn = rootEl.querySelector(`.vote-btn[data-vote="${data.reaction_type}"]`);
+      if (btn) btn.classList.add('selected');
+    }
+  }catch{}
+}
+
+
+async function renderBulletinVotes(supabase, wrap, b){
+  // Find the action bar that contains Comment/View Comments buttons
+  const viewBtn = wrap.querySelector('[data-role="view-comments"][data-id="'+b.id+'"]');
+  const bar = viewBtn ? viewBtn.parentElement : wrap.querySelector('.mt-3.d-flex');
+  if (!bar) return;
+
+  // Build horizontal vote controls
+  const container = document.createElement('span');
+  container.className = 'vote-horiz ms-auto'; // push toward the end if there's room
+  container.setAttribute('data-target-type','bulletin');
+  container.setAttribute('data-target-id', b.id);
+  container.innerHTML = voteSvgButton('up','') + '<span class="vote-score">0</span>' + voteSvgButton('down','');
+  bar.appendChild(container);
+
+  const scoreEl = container.querySelector('.vote-score');
+  // Initial score
+  scoreEl.textContent = await fetchVoteScore(supabase, 'bulletin', b.id);
+
+  // Hide buttons for the owner; still show score
+  try{
+    const { data: { user } } = await supabase.auth.getUser();
+    const isOwner = !!(user && user.id === b.user_id);
+    if (isOwner){
+      container.querySelectorAll('.vote-btn').forEach(btn => btn.classList.add('d-none'));
+    } else {
+      await markUserSelection(supabase, container, 'bulletin', b.id);
+      // Wire handlers for non-owners
+      container.querySelectorAll('.vote-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const kind = btn.getAttribute('data-vote');
+          const { error } = await upsertReaction(supabase, { targetType: 'bulletin', targetId: b.id, reactionType: kind });
+          if (!error){
+            scoreEl.textContent = await fetchVoteScore(supabase, 'bulletin', b.id);
+            await markUserSelection(supabase, container, 'bulletin', b.id);
+          } else {
+            console.warn('vote failed', error);
+          }
+        });
+      });
+    }
+  }catch(e){
+    console.warn('bulletin vote init failed', e);
+  }
+}
+
+
+async function renderCommentVotes(supabase, rowEl, commentId){
+  // next to edit/delete, horizontal block
+  const actions = rowEl.querySelector('.mt-1.d-flex');
+  const mount = actions || rowEl;
+  const wrap = document.createElement('span');
+  wrap.className = 'vote-horiz';
+  wrap.setAttribute('data-target-type','comment');
+  wrap.setAttribute('data-target-id', commentId);
+  wrap.innerHTML = voteSvgButton('up','') + `<span class="vote-score">0</span>` + voteSvgButton('down','');
+  mount.appendChild(wrap);
+
+  const scoreEl = wrap.querySelector('.vote-score');
+  // Hide buttons for comment owner; still show score
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const isOwner = !!(user && user.id === rowEl.getAttribute('data-user-id'));
+    if (isOwner){ wrap.querySelectorAll('.vote-btn').forEach(btn => btn.classList.add('d-none')); }
+  } catch {}
+
+  scoreEl.textContent = await fetchVoteScore(supabase, 'comment', commentId);
+  await markUserSelection(supabase, wrap, 'comment', commentId);
+
+  wrap.querySelectorAll('.vote-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const kind = btn.getAttribute('data-vote');
+      const { error } = await upsertReaction(supabase, { targetType: 'comment', targetId: commentId, reactionType: kind });
+      if (!error){
+        scoreEl.textContent = await fetchVoteScore(supabase, 'comment', commentId);
+        await markUserSelection(supabase, wrap, 'comment', commentId);
+      } else {
+        console.warn('comment vote failed', error);
+      }
+    });
+  });
+}
+
+/* === QNA NUDGE AUTOLOAD (router-safe) === */
+(function(){
+  try{
+    setTimeout(() => {
+      import('/communityhub/hub_modules/home-qna-nudge.loader.v2.js?v=' + Date.now())
+        .then(() => console.info('[QNA] autoload: loader requested'))
+        .catch(e => console.warn('[QNA] autoload import failed', e));
+    }, 0);
+  }catch(e){
+    console.warn('[QNA] autoload wrapper failed', e);
+  }
 })();

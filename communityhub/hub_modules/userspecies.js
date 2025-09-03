@@ -172,22 +172,24 @@ function renderTable(rows){
       const t = (r.insect_type || '—').trim();
       (buckets[t] ||= []).push(r);
     }
-    let html = `<div class="table-responsive" style="max-height: 70vh; overflow-y:auto">`;
-    html += `<table class="table table-bordered table-hover align-middle text-nowrap"><thead class="table-light sticky-top"><tr>
-      <th style="width:20px;">Actions</th><th>Species</th><th>Morph</th><th>Type</th><th style="width:50px;">Image</th></tr></thead><tbody>`;
+    let html = `<div class="table-responsive" style="max-height:70vh; overflow-x:auto; overflow-y:auto">`;
+    html += `<table id="species-table" class="table table-bordered table-hover align-middle text-nowrap"><thead class="table-light sticky-top"><tr>
+      <th class="actions" style="min-width:56px;">Actions</th><th>Species</th><th>Morph</th><th>Type</th><th style="width:50px;">Image</th></tr></thead><tbody>`;
     for (const t of Object.keys(buckets).sort((a,b)=>a.localeCompare(b))){
       html += `<tr class="type-header"><td colspan="5"><strong>${escapeHtml(t)}</strong> <span class="text-muted">(${buckets[t].length})</span></td></tr>`;
       for (const i of buckets[t]) html += rowHtml(i);
     }
     html += `</tbody></table></div>`;
     host.innerHTML = html;
+  try { if (window.__enhanceSpeciesTable) window.__enhanceSpeciesTable(); } catch (e) { console.warn('enhance table err', e); }
   } else {
-    let html = `<div class="table-responsive" style="max-height: 70vh; overflow-y:auto">`;
-    html += `<table class="table table-bordered table-hover align-middle text-nowrap"><thead class="table-light sticky-top"><tr>
-      <th style="width:20px;">Actions</th><th>Species</th><th>Morph</th><th>Type</th><th style="width:50px;">Image</th></tr></thead><tbody>`;
+    let html = `<div class="table-responsive" style="max-height:70vh; overflow-x:auto; overflow-y:auto">`;
+    html += `<table id="species-table" class="table table-bordered table-hover align-middle text-nowrap"><thead class="table-light sticky-top"><tr>
+      <th class="actions" style="min-width:56px;">Actions</th><th>Species</th><th>Morph</th><th>Type</th><th style="width:50px;">Image</th></tr></thead><tbody>`;
     for (const i of rows) html += rowHtml(i);
     html += `</tbody></table></div>`;
     host.innerHTML = html;
+  try { if (window.__enhanceSpeciesTable) window.__enhanceSpeciesTable(); } catch (e) { console.warn('enhance table err', e); }
   }
 
   document.querySelectorAll("#inventory-table-container .inventory-row").forEach(row => {
@@ -203,7 +205,7 @@ function rowHtml(i){
       ? `<img src="${i.cover_image}" alt="${escapeHtml(i.species || "")}" style="height:30px; width:auto;">`
       : placeholderIcon(30);
   return `<tr class="inventory-row" id="row-${i.id}" data-inventory-id="${i.id}">
-    <td>
+    <td class="actions">
       <button class="btn btn-sm btn-info me-1" onclick="openViewSpecies('${i.id}')">View</button>
       <button class="btn btn-sm btn-primary me-1" onclick="openEditSpecies('${i.id}')">Edit</button>
       <button class="btn btn-sm btn-danger" onclick="deleteSpecies('${i.id}', '${escapeHtml(i.species)}')">Delete</button>
@@ -232,7 +234,16 @@ function renderCards(rows){
     const list = items.slice(0, 6).map(i => {
       const img = i.cover_image ? `<img src="${i.cover_image}" alt="">` : placeholderIcon(36);
       const label = `<div class="ms-2 small"><div class="fw-semibold">${escapeHtml(i.species||'')}</div><div class="text-muted">${escapeHtml(i.morph_name||'')}</div></div>`;
-      return `<div class="d-flex align-items-center mb-2">${img}${label}</div>`;
+      const actions = `\
+        <div class="ms-auto inv-action-wrap">\
+          <button type="button" class="inv-action-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">▾</button>\
+          <div class="inv-action-menu">\
+            <button type="button" class="inv-action-item" data-act="view" data-id="${i.id}">View</button>\
+            <button type="button" class="inv-action-item" data-act="edit" data-id="${i.id}">Edit</button>\
+            <button type="button" class="inv-action-item" data-act="delete" data-id="${i.id}" data-label="${escapeHtml(i.species||'')}">Delete</button>\
+          </div>\
+        </div>`;
+      return `<div class="d-flex align-items-center mb-2">${img}${label}${actions}</div>`;
     }).join('');
 
     html += `<div class="col-12 col-sm-6 col-md-4 col-lg-3">
@@ -249,6 +260,7 @@ function renderCards(rows){
   }
   html += `</div>`;
   host.innerHTML = html;
+  try { if (window.__enhanceSpeciesTable) window.__enhanceSpeciesTable(); } catch (e) { console.warn('enhance table err', e); }
 }
 
 /* ---------------- DUPLICATE DETECTOR ---------------- */
@@ -399,4 +411,130 @@ function placeholderIcon(size=30){
       <circle cx='9' cy='8' r='2' fill='#ced4da'/>
     </svg>`).replace(/\s+/g, " ");
   return `<img src="data:image/svg+xml;utf8,${svg}" alt="-" style="height:${s}px;width:${s}px;">`;
+}
+
+// ---- Mobile actions enhancer (down-arrow menu on phones) ----
+(function(){
+  const mq = window.matchMedia('(max-width: 576px)');
+  const q  = (s, r=document) => r.querySelector(s);
+  const qa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  function table(){
+    return q('#inventory-table-container table') || q('#species-table');
+  }
+
+  function ensureActionsFirst(t){
+    if (!t) return;
+    const head = t.tHead?.rows[0];
+    if (head) {
+      // Ensure header th has class="actions"
+      let th = head.querySelector('th.actions') ||
+               qa('th', head).find(th => /actions/i.test((th.textContent||'').trim()));
+      if (th) {
+        if (!th.classList.contains('actions')) th.classList.add('actions');
+        if (head.cells[0] !== th) head.insertBefore(th, head.cells[0]);
+      }
+    }
+    const body = t.tBodies[0] || t;
+    qa('tr', body).forEach(tr => {
+      let td = tr.querySelector('td.actions') || tr.cells[0];
+      if (td) {
+        td.classList.add('actions');
+        if (tr.cells[0] !== td) tr.insertBefore(td, tr.cells[0]);
+      }
+    });
+  }
+
+  function enhanceRow(tr){
+    const cell = tr.querySelector('td.actions') || tr.cells[0];
+    if (!cell || cell.querySelector('.spm-toggle')) return;
+
+    const buttons = qa('a.btn, button.btn', cell);
+    if (!buttons.length) return;
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'spm-toggle';
+    toggle.setAttribute('aria-haspopup', 'true');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('title', 'Actions');
+    toggle.textContent = '▾'; // down arrow
+
+    const menu = document.createElement('div');
+    menu.className = 'spm-menu';
+
+    buttons.forEach(btn => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'spm-item';
+      item.textContent = (btn.textContent || btn.ariaLabel || 'Action').trim();
+      item.addEventListener('click', (e) => { e.preventDefault(); btn.click(); });
+      menu.appendChild(item);
+    });
+
+    cell.prepend(toggle);
+    cell.appendChild(menu);
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = menu.classList.toggle('spm-open');
+      toggle.setAttribute('aria-expanded', String(open));
+      qa('.spm-menu.spm-open', table()).forEach(m => { if (m !== menu) m.classList.remove('spm-open'); });
+    });
+
+    document.addEventListener('click', () => {
+      if (menu.classList.contains('spm-open')) {
+        menu.classList.remove('spm-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    }, { passive: true });
+  }
+
+  function enhanceSpeciesTable(){
+    const t = table();
+    if (!t) return;
+    ensureActionsFirst(t);
+    if (mq.matches) qa('tbody tr', t).forEach(enhanceRow);
+  }
+
+  window.__enhanceSpeciesTable = enhanceSpeciesTable;
+  setTimeout(enhanceSpeciesTable, 0);
+  mq.addEventListener('change', enhanceSpeciesTable);
+
+  const t0 = table();
+  if (t0) {
+    const body = t0.tBodies[0] || t0;
+    new MutationObserver(enhanceSpeciesTable).observe(body, { childList: true, subtree: true });
+  }
+})();
+
+function wireCardActionMenus(scope){
+  const container = scope || document;
+  function closeAll(except=null){
+    container.querySelectorAll('.inv-action-menu.open').forEach(m => { if (m !== except) m.classList.remove('open'); });
+    container.querySelectorAll('.inv-action-toggle[aria-expanded="true"]').forEach(t => t.setAttribute('aria-expanded','false'));
+  }
+  container.querySelectorAll('.inv-action-wrap').forEach(wrap => {
+    const toggle = wrap.querySelector('.inv-action-toggle');
+    const menu = wrap.querySelector('.inv-action-menu');
+    if (!toggle || !menu) return;
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = menu.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(isOpen));
+      closeAll(isOpen ? menu : null);
+    });
+    wrap.querySelectorAll('.inv-action-item').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const act = btn.getAttribute('data-act');
+        const label = btn.getAttribute('data-label') || '';
+        if (act === 'view')      { window.openViewSpecies && window.openViewSpecies(id); }
+        else if (act === 'edit') { window.openEditSpecies && window.openEditSpecies(id); }
+        else if (act === 'delete'){ window.deleteSpecies && window.deleteSpecies(id, label); }
+        closeAll();
+      });
+    });
+  });
+  document.addEventListener('click', () => closeAll(), { passive: true });
 }

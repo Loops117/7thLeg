@@ -4,45 +4,45 @@ let __currentProfileId = null;
 let __analyticsFallbackTimer = null;
 
 // ---- helpers ----
-function initialsFrom(name){
-  const parts = String(name||"").trim().split(/\s+/).filter(Boolean);
-  const init = parts.slice(0,2).map(w => (w && w[0] ? w[0].toUpperCase() : "")).join("");
+function initialsFrom(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  const init = parts.slice(0, 2).map(w => (w && w[0] ? w[0].toUpperCase() : "")).join("");
   return init || "?";
 }
-function avatarHtml(url, name, size=48){
-  if (url){
-    return `<img src="${String(url).replace(/"/g,'&quot;')}" alt="${(name||'').replace(/["&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}" class="rounded-circle border" style="width:${size}px;height:${size}px;object-fit:cover;">`;
+function avatarHtml(url, name, size = 48) {
+  if (url) {
+    return `<img src="${String(url).replace(/"/g, '&quot;')}" alt="${(name || '').replace(/["&<>]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[s]))}" class="rounded-circle border" style="width:${size}px;height:${size}px;object-fit:cover;">`;
   }
   const initials = initialsFrom(name);
   return `<div class="rounded-circle border bg-light-subtle d-inline-flex align-items-center justify-content-center" style="width:${size}px;height:${size}px;"><span class="fw-semibold text-muted">${initials}</span></div>`;
 }
-function profileLink(userId, text){
-  const href = `/communityhub/hub.html?module=profile&id=${encodeURIComponent(userId||'')}`;
-  return `<a class="text-decoration-none" href="${href}">${(text||'Profile').replace(/["&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}</a>`;
+function profileLink(userId, text) {
+  const href = `/communityhub/hub.html?module=profile&id=${encodeURIComponent(userId || '')}`;
+  return `<a class="text-decoration-none" href="${href}">${(text || 'Profile').replace(/["&<>]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[s]))}</a>`;
 }
-function stars(n){
-  n = Math.max(1, Math.min(5, parseInt(n||0,10)||0));
-  return `<span class="text-warning" aria-label="${n} star rating">${"★".repeat(n)}${"☆".repeat(5-n)}</span>`;
+function stars(n) {
+  n = Math.max(1, Math.min(5, parseInt(n || 0, 10) || 0));
+  return `<span class="text-warning" aria-label="${n} star rating">${"★".repeat(n)}${"☆".repeat(5 - n)}</span>`;
 }
-function sanitizeHtml(html){
+function sanitizeHtml(html) {
   // allow only a small set of tags: b,strong,i,em,u,br,p,ul,ol,li,a
-  const allowed = { B:1, STRONG:1, I:1, EM:1, U:1, BR:1, P:1, UL:1, OL:1, LI:1, A:1 };
+  const allowed = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, BR: 1, P: 1, UL: 1, OL: 1, LI: 1, A: 1 };
   const container = document.createElement('div');
-  container.innerHTML = String(html||"");
+  container.innerHTML = String(html || "");
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
   const toRemove = [];
-  while (walker.nextNode()){
+  while (walker.nextNode()) {
     const el = walker.currentNode;
-    if (!allowed[el.tagName]){
+    if (!allowed[el.tagName]) {
       toRemove.push(el);
-    } else if (el.tagName === 'A'){
+    } else if (el.tagName === 'A') {
       // keep only safe hrefs
       const href = el.getAttribute('href') || '';
       if (!/^(https?:|mailto:)/i.test(href)) {
         el.removeAttribute('href');
       } else {
-        el.setAttribute('target','_blank');
-        el.setAttribute('rel','noopener noreferrer');
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
       }
       // strip other attributes
       [...el.attributes].forEach(a => { if (a.name.toLowerCase() !== 'href' && a.name.toLowerCase() !== 'target' && a.name.toLowerCase() !== 'rel') el.removeAttribute(a.name); });
@@ -76,7 +76,7 @@ function sanitizeHtml(html){
   async function fetchAndRenderProfile(uid) {
     // Mark active profile render session
     __currentProfileId = uid || null;
-    if (__analyticsFallbackTimer) { try{ clearTimeout(__analyticsFallbackTimer); }catch(e){} __analyticsFallbackTimer = null; }
+    if (__analyticsFallbackTimer) { try { clearTimeout(__analyticsFallbackTimer); } catch (e) { } __analyticsFallbackTimer = null; }
     if (!uid) {
       document.getElementById("hub-content").innerHTML = "<p class='text-danger'>You must be logged in to view your profile.</p>";
       return;
@@ -84,9 +84,20 @@ function sanitizeHtml(html){
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, role, about_me, avatar_url")
+      .select("full_name, role, about_me, avatar_url, created_at")
       .eq("id", uid)
       .single();
+
+    // Set "Joined" date
+    const joinedAt = profile?.created_at || null;
+    const joinedEl = document.getElementById("profile-joined");
+    if (joinedEl) {
+      joinedEl.textContent = joinedAt
+        ? new Date(joinedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        : '—';
+    }
+
+
 
     if (!profile) {
       profileNameEl.textContent = "User not found";
@@ -106,10 +117,10 @@ function sanitizeHtml(html){
     // About Me: render limited HTML
     profileAboutEl.innerHTML = profile?.about_me ? sanitizeHtml(profile.about_me) : "No about me yet.";
     // Avatar: show image if available, otherwise hide container
-    (function(){
+    (function () {
       const mount = document.getElementById("profile-avatar");
       if (!mount) return;
-      if (profile?.avatar_url){
+      if (profile?.avatar_url) {
         mount.innerHTML = avatarHtml(profile.avatar_url, profile.full_name, 48);
         mount.classList.remove("d-none");
       } else {
@@ -137,28 +148,28 @@ function sanitizeHtml(html){
     const { data: aboutMe } = await supabase
       .from("bulletins")
       .select("id,user_id,message,rating,created_at,profiles:profiles!bulletins_user_id_fkey(id,full_name,avatar_url)")
-      .eq("type","review")
-      .eq("review_target_type","user")
+      .eq("type", "review")
+      .eq("review_target_type", "user")
       .eq("review_target_id", uid)
-      .order("created_at",{ ascending:false });
+      .order("created_at", { ascending: false });
 
     const { data: myWritten } = await supabase
       .from("bulletins")
       .select("id,review_target_type,review_target_id,message,rating,created_at")
-      .eq("type","review")
+      .eq("type", "review")
       .eq("user_id", uid)
-      .order("created_at",{ ascending:false });
+      .order("created_at", { ascending: false });
 
     const recvd = Array.isArray(aboutMe) ? aboutMe : [];
     if (!recvd.length) {
       profileRatingEl.textContent = "⭐ No reviews yet";
     } else {
-      const avg = recvd.reduce((a, r) => a + (r.rating||0), 0) / recvd.length;
+      const avg = recvd.reduce((a, r) => a + (r.rating || 0), 0) / recvd.length;
       const rounded = Math.max(1, Math.min(5, Math.round(avg)));
       profileRatingEl.innerHTML = stars(rounded) + ` <span class="small text-muted">(${recvd.length})</span>`;
     }
 
-    function rowFromAbout(r){
+    function rowFromAbout(r) {
       const u = r.profiles || {};
       return `<div class="mb-2 d-flex align-items-start gap-2">
         <div>${avatarHtml(u.avatar_url, u.full_name, 28)}</div>
@@ -168,37 +179,37 @@ function sanitizeHtml(html){
             <span class="small text-muted">${new Date(r.created_at).toLocaleDateString()}</span>
           </div>
           <div>${stars(r.rating || 5)}</div>
-          <div class="small text-muted">${(r.message||"").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]))}</div>
+          <div class="small text-muted">${(r.message || "").replace(/[&<>]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[s]))}</div>
         </div>
       </div>`;
     }
 
-    async function rowFromMine(r){
+    async function rowFromMine(r) {
       // Resolve target name
       let label = "User";
-      try{
-        if (r.review_target_type === "user"){
+      try {
+        if (r.review_target_type === "user") {
           const { data } = await supabase.from("profiles").select("full_name").eq("id", r.review_target_id).maybeSingle();
           label = (data && data.full_name) || "User";
-        } else if (r.review_target_type === "store"){
+        } else if (r.review_target_type === "store") {
           const { data } = await supabase.from("store_profiles").select("name").eq("id", r.review_target_id).maybeSingle();
           label = (data && data.name) || "Store";
         }
-      }catch(e){}
+      } catch (e) { }
       return `<div class="mb-2">
         <div class="d-flex align-items-center justify-content-between">
-          <strong>About ${ (r.review_target_type === "store" ? "Store" : "User") }: ${(label||"").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]))}</strong>
+          <strong>About ${(r.review_target_type === "store" ? "Store" : "User")}: ${(label || "").replace(/[&<>]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[s]))}</strong>
           <span class="small text-muted">${new Date(r.created_at).toLocaleDateString()}</span>
         </div>
         <div>${stars(r.rating || 5)}</div>
-        <div class="small text-muted">${(r.message||"").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&gt;'}[s]))}</div>
+        <div class="small text-muted">${(r.message || "").replace(/[&<>]/g, s => ({ '&': '&amp;', '<': '&gt;' }[s]))}</div>
       </div>`;
     }
 
     // Build the Reviews panel content: received first, then written
     const parts = [];
     parts.push(`<div class="fw-semibold mb-1">Reviews about this user</div>`);
-    if (recvd.length){
+    if (recvd.length) {
       parts.push(recvd.map(rowFromAbout).join(""));
     } else {
       parts.push(`<div class="small text-muted mb-2">No reviews yet.</div>`);
@@ -206,9 +217,9 @@ function sanitizeHtml(html){
 
     parts.push(`<hr class="my-2">`);
     parts.push(`<div class="fw-semibold mb-1">Reviews written by this user</div>`);
-    if (Array.isArray(myWritten) && myWritten.length){
+    if (Array.isArray(myWritten) && myWritten.length) {
       const built = [];
-      for (const r of myWritten){ built.push(await rowFromMine(r)); }
+      for (const r of myWritten) { built.push(await rowFromMine(r)); }
       parts.push(built.join(""));
     } else {
       parts.push(`<div class="small text-muted">No reviews written yet.</div>`);
@@ -238,12 +249,12 @@ function sanitizeHtml(html){
       .from("user_inventories")
       .select("id, species, common_name, morph_name, cover_image, insect_type")
       .eq("user_id", uid);
-// analytics hook
-try{
-  window._lastProfileInventory = inventory || [];
-  window._lastProfileInventory_uid = uid;
-  renderProfileAnalytics(window._lastProfileInventory, { uid });
-}catch(e){ console.warn(e); }
+    // analytics hook
+    try {
+      window._lastProfileInventory = inventory || [];
+      window._lastProfileInventory_uid = uid;
+      renderProfileAnalytics(window._lastProfileInventory, { uid });
+    } catch (e) { console.warn(e); }
 
 
 
@@ -281,14 +292,28 @@ try{
     }
   }
 
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!userId && user?.id) {
     userId = user.id;
   }
 
   await fetchAndRenderProfile(userId);
+  await renderLevelsFor(userId);
+  // Levels (reusable) - re-render for any profile id
+  async function renderLevelsFor(id) {
+    try {
+      const mod = await import('./profiles/profile.levels.js');
+      const container = document.querySelector('#profile-levels');
+      if (container && mod && typeof mod.initLevelsProfile === 'function') {
+        container.innerHTML = '';
+        await mod.initLevelsProfile({ userId: id, el: container, supabase });
+      }
+    } catch (e) { console.warn('levels module failed to load', e); }
+  }
 
-  
+  await renderLevelsFor(userId);
+
   // Wire built-in "My Profile" button (do not create duplicates)
   const myBtnEl = document.getElementById("my-profile-btn");
   if (myBtnEl) {
@@ -297,6 +322,7 @@ try{
       e.preventDefault();
       if (user?.id) {
         await fetchAndRenderProfile(user.id);
+        await renderLevelsFor(user.id);
       }
     };
   }
@@ -350,8 +376,8 @@ try{
       }
       dropdown.innerHTML = matches.map(m => `
         <li class="list-group-item list-group-item-action d-flex align-items-center gap-2" data-id="${m.id}">
-          ${ (m.avatar_url ? `<img src="${m.avatar_url}" alt="" class="rounded-circle" style="width:24px;height:24px;object-fit:cover;">` : `<div class="rounded-circle bg-light border" style="width:24px;height:24px; display:flex;align-items:center;justify-content:center;font-size:12px;">${(m.full_name||"?").slice(0,1).toUpperCase()}</div>`) }
-          <span>${(m.full_name||"User").replace(/[&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]))}</span>
+          ${(m.avatar_url ? `<img src="${m.avatar_url}" alt="" class="rounded-circle" style="width:24px;height:24px;object-fit:cover;">` : `<div class="rounded-circle bg-light border" style="width:24px;height:24px; display:flex;align-items:center;justify-content:center;font-size:12px;">${(m.full_name || "?").slice(0, 1).toUpperCase()}</div>`)}
+          <span>${(m.full_name || "User").replace(/[&<>]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[s]))}</span>
         </li>`).join("");
       dropdown.style.display = "block";
     } catch (e) {
@@ -383,6 +409,7 @@ try{
       dropdown.style.display = "none";
       inputEl.blur();
       await fetchAndRenderProfile(id);
+      await renderLevelsFor(id);
     });
   }
 
@@ -401,6 +428,7 @@ try{
       const id = first.getAttribute("data-id");
       dropdown.style.display = "none";
       await fetchAndRenderProfile(id);
+      await renderLevelsFor(id);
     } else {
       // fallback: run search immediately
       await runSearch(inputEl?.value || "");
@@ -410,8 +438,8 @@ try{
 
 // ===== Profile Analytics (compact stats + pie) =====
 
-function renderProfileAnalytics(inventory, opts={}){
-  try{
+function renderProfileAnalytics(inventory, opts = {}) {
+  try {
     const totalsEl = document.getElementById("profile-stats-total");
     const uniqueEl = document.getElementById("profile-stats-unique");
     const typesWrap = document.getElementById("profile-stats-types");
@@ -430,12 +458,12 @@ function renderProfileAnalytics(inventory, opts={}){
 
     if (typesWrap) {
       typesWrap.innerHTML = Object.keys(byType).length
-        ? Object.entries(byType).sort((a,b)=> b[1]-a[1]).map(([k,v]) =>
-            `<span class="badge rounded-pill border bg-light text-dark">${k}: ${v}</span>`
-          ).join(" ")
+        ? Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
+          `<span class="badge rounded-pill border bg-light text-dark">${k}: ${v}</span>`
+        ).join(" ")
         : '<span class="text-muted small">No inventory yet.</span>';
     }
-  }catch(e){ console.warn('Stats render error:', e); }
+  } catch (e) { console.warn('Stats render error:', e); }
 }
 // Cleaned analytics fallback (single instance)
 document.addEventListener("DOMContentLoaded", () => {
@@ -443,7 +471,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof window.__analyticsFallbackTimer !== "undefined" && window.__analyticsFallbackTimer) {
       clearTimeout(window.__analyticsFallbackTimer);
     }
-  } catch {}
+  } catch { }
 
   window.__analyticsFallbackTimer = setTimeout(() => {
     try {
@@ -456,36 +484,36 @@ document.addEventListener("DOMContentLoaded", () => {
       if (needsRender && invReady && uid && uid === window.__currentProfileId) {
         window.renderProfileAnalytics(window._lastProfileInventory, { uid });
       }
-    } catch {}
+    } catch { }
   }, 400);
 });
 
 
 // ---- inline pie helpers ----
-function piePalette(n){
+function piePalette(n) {
   // pleasant categorical palette (Bootstrap-ish hues)
-  const base = ['#0d6efd','#198754','#6f42c1','#fd7e14','#20c997','#dc3545','#0dcaf0','#6c757d','#6610f2','#ffc107'];
+  const base = ['#0d6efd', '#198754', '#6f42c1', '#fd7e14', '#20c997', '#dc3545', '#0dcaf0', '#6c757d', '#6610f2', '#ffc107'];
   const out = [];
-  for (let i=0;i<n;i++){ out.push(base[i % base.length]); }
+  for (let i = 0; i < n; i++) { out.push(base[i % base.length]); }
   return out;
 }
 
-function pieDataURI(labels, values, opts={}){
+function pieDataURI(labels, values, opts = {}) {
   const width = opts.width || 260;
   const height = opts.height || 180;
-  const cx = width/2, cy = height/2;
+  const cx = width / 2, cy = height / 2;
   const r = Math.min(width, height) * 0.45;
-  const total = values.reduce((a,b)=>a+(+b||0),0);
+  const total = values.reduce((a, b) => a + (+b || 0), 0);
   const colors = (opts.colors && opts.colors.length ? opts.colors : piePalette(values.length));
-  let a0 = -Math.PI/2; // start at top
+  let a0 = -Math.PI / 2; // start at top
   const parts = [];
-  function polar(a){ return [cx + r*Math.cos(a), cy + r*Math.sin(a)]; }
-  for (let i=0;i<values.length;i++){
+  function polar(a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+  for (let i = 0; i < values.length; i++) {
     const v = +values[i] || 0;
-    const frac = total>0 ? v/total : 0;
-    const a1 = a0 + frac * Math.PI*2;
-    const [x0,y0] = polar(a0);
-    const [x1,y1] = polar(a1);
+    const frac = total > 0 ? v / total : 0;
+    const a1 = a0 + frac * Math.PI * 2;
+    const [x0, y0] = polar(a0);
+    const [x1, y1] = polar(a1);
     const laf = (a1 - a0) > Math.PI ? 1 : 0;
     const path = `M ${cx} ${cy} L ${x0} ${y0} A ${r} ${r} 0 ${laf} 1 ${x1} ${y1} Z`;
     const fill = colors[i];
@@ -497,12 +525,12 @@ function pieDataURI(labels, values, opts={}){
 }
 
 // Lightbox controls
-function setModalImage(idx){
+function setModalImage(idx) {
   const list = Array.isArray(window.galleryImages) ? window.galleryImages : [];
   const url = list[idx];
   const img = document.getElementById("galleryModalImage");
   if (!img) return;
-  if (url){
+  if (url) {
     img.src = url;
     img.dataset.index = String(idx);
   } else {

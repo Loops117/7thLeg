@@ -35,5 +35,52 @@
 
   .bulletin-gallery { margin-top:.5rem; }
   .bulletin-gallery .gallery-thumb { width:120px; height:120px; object-fit:cover; cursor:pointer; }
+
+  /* --- Vote controls --- */
+  .vote-vert {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+  }
+  .vote-horiz {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+  }
+  .vote-score {
+    font-weight: 600;
+    min-width: 1.5rem;
+    text-align: center;
+    font-size: .9rem;
+  }
+  .vote-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+    line-height: 0;
+    cursor: pointer;
+  }
+  .vote-btn svg { width: 28px; height: 28px; display:block; }
+  .vote-btn.up svg polygon { fill: #e9f7ef; stroke: #20c997; }
+  .vote-btn.down svg polygon { fill: #fdeeed; stroke: #e8590c; }
+  .vote-btn.up:hover svg polygon { fill: #d3f9d8; }
+  .vote-btn.down:hover svg polygon { fill: #ffe3e0; }
+  .vote-btn.selected.up svg polygon { fill: #b2f2bb; stroke: #12b886; }
+  .vote-btn.selected.down svg polygon { fill: #ffc9c2; stroke: #e03131; }
+  .vote-btn text { font-size: 10px; font-weight: 700; fill: #2b2b2b; pointer-events: none; }
+  .bulletin-card { position: relative; }
+
 </style>
+<script src="/communityhub/hub_modules/home-qna-nudge.loader.v2.js"></script>
+
 <script src="/assets/js/home.gallery.once.js"></script>
+
+
+
+

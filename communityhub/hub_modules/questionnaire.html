@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Species Questionnaire</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        .qna-wrap {
+            max-width: 820px;
+            margin: 1rem auto;
+            padding: 1rem;
+        }
+
+        .qna-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+        }
+
+        .qna-header {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .qna-steps {
+            font-size: .9rem;
+            color: #64748b;
+        }
+
+        .qna-actions {
+            display: flex;
+            gap: .5rem;
+            justify-content: flex-end;
+            margin-top: .75rem;
+        }
+
+        .input-row {
+            margin: .5rem 0;
+        }
+
+        .input-row label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: .25rem;
+        }
+
+        .input-row input,
+        .input-row textarea,
+        .input-row select {
+            width: 90%;
+            padding: .5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+
+        .muted {
+            color: #64748b;
+            font-size: .9rem;
+        }
+
+        .note {
+            color: #475569;
+            font-size: .85rem;
+            margin-top: .25rem;
+        }
+
+        .success {
+            color: #0f5132;
+            background: #d1e7dd;
+            border-radius: 8px;
+            padding: .5rem .75rem;
+            display: none;
+        }
+
+        details {
+            border: 1px dashed #e2e8f0;
+            border-radius: 8px;
+            padding: .5rem .75rem;
+            margin: .5rem 0;
+            background: #f8fafc;
+        }
+
+        details>summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        details ul {
+            margin: .5rem 0 .25rem 1.25rem;
+        }
+
+        .row-flex {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+        }
+
+        .row-flex>* {
+            flex: 0 0 auto;
+        }
+
+        .row-flex select {
+            min-width: 280px;
+        }
+
+        @media (max-width:640px) {
+            .row-flex {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    
+        .btn-edit-answer {
+            margin-left: .5rem;
+            padding: .25rem .5rem;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            border-radius: 6px;
+            font-size: .85rem;
+            cursor: pointer;
+        }
+        .btn-edit-answer[disabled]{
+            opacity: .5;
+            cursor: not-allowed;
+        }
+        .history-inline-editor {
+            display: block;
+            margin: .35rem 0;
+        }
+        .history-inline-editor select,
+        .history-inline-editor input,
+        .history-inline-editor textarea {
+            width: 90%;
+            padding: .35rem .5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+        }
+        .edit-controls {
+            display: inline-flex;
+            gap: .5rem;
+            margin-left: .25rem;
+        }
+        .edit-controls button {
+            padding: .25rem .5rem;
+            border: 1px solid #cbd5e1;
+            background: #e2e8f0;
+            border-radius: 6px;
+            font-size: .85rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="qna-wrap">
+        <div class="qna-card">
+            <div class="qna-header">
+                <h3 class="m-0">Species Questionnaire</h3>
+                <div class="qna-steps" id="qna-steps">Pick a species and press Start</div>
+            </div>
+
+            <!-- Species chooser appears first; Start locks the selection -->
+            <div class="input-row">
+                <label for="speciesSelect">Your species</label>
+                <div class="row-flex">
+                    <select id="speciesSelect"></select>
+                    <button id="btn-start" type="button">Start</button>
+                </div>
+                <p class="muted" id="cooldownNotice" style="display:none;margin-top:.25rem;"></p>
+            </div>
+
+            <div id="qna-form"></div>
+
+            <div class="input-row">
+                <h4 class="m-0" style="margin-top:1rem;">Your previous answers</h4>
+                <div id="qna-history" class="muted" style="margin-top:.5rem"></div>
+            </div>
+
+            <div class="success" id="qna-toast">Saved! Points awarded.</div>
+        </div>
+    </div>
+
+    <script type="module" src="./questionnaire.js?v=20250828c"></script>
+</body>
+
+</html>

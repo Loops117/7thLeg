@@ -54,15 +54,56 @@
 <style>
   .inventory-row:hover { background-color: #caf3c6; cursor: pointer; }
   .inventory-row.selected { background-color: rgb(135, 231, 140) !important; }
-  
-  .type-chip { border: 1px solid rgba(0,0,0,.12); padding: .2rem .6rem; border-radius: 999px; background:#f8f9fa; cursor:pointer; user-select:none; }
-  .type-chip.enabled { background:#d1f0d2; border-color:#a7dca9; color:#0f5132; }
-  .type-chip.disabled { background:#ececf0; border-color:#d0d0d7; color:#6c757d; opacity: .85; }
-  .type-chip#type-chip-all.active { background:#d1e7ff; border-color:#9ec5fe; color:#084298; }
+  .type-chip { border: 1px solid rgba(0,0,0,.1); padding: .2rem .6rem; border-radius: 999px; background:#f8f9fa; cursor:pointer; }
+  .type-chip.active { background:#d1f0d2; }
   .type-header { position: sticky; top: 0; z-index: 1; background: #f8f9fa; }
   .inv-card { width: 100%; max-width: 320px; }
   .inv-card img { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; }
   /* Compact vertical toggle */
   #inventory-controls .btn-group-vertical .btn { padding: .25rem .5rem; }
+</style>
 
+
+<style>
+/* --- Mobile actions menu for species table (≤576px) --- */
+@media (max-width: 576px) {
+  /* allow wrapping & taller rows on phones */
+  #inventory-table-container table td { white-space: normal; vertical-align: top; padding: .65rem .5rem; }
+
+  /* Hide bulky action buttons on mobile (we will show a down-arrow menu) */
+  #inventory-table-container table td.actions .btn { display: none !important; }
+
+  /* Avoid text caret/selection in the actions cell on tap */
+  #inventory-table-container table td.actions { position: relative; user-select: none; }
+
+  #inventory-table-container table td.actions .spm-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
+  }
+  #inventory-table-container table td.actions .spm-menu {
+    position: absolute; left: .25rem; top: calc(100% + .25rem);
+    display: none; min-width: 160px; background: #fff; border: 1px solid rgba(0,0,0,.08);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.08); z-index: 30; overflow: hidden;
+  }
+  #inventory-table-container table td.actions .spm-menu.spm-open { display: block; }
+  #inventory-table-container table .spm-item { display: block; width: 100%; padding: .5rem .75rem; text-align: left; background: #fff; border: 0; font-size: .95rem; }
+  #inventory-table-container table .spm-item:hover { background: #f8f9fa; }
+}
+</style>
+
+<style>
+/* Card view action dropdown (both mobile & desktop) */
+.inv-action-wrap { position: relative; }
+.inv-action-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
+}
+.inv-action-menu {
+  position: absolute; right: 0; top: calc(100% + .25rem);
+  display: none; min-width: 160px; background: #fff; border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.08); z-index: 30; overflow: hidden;
+}
+.inv-action-menu.open { display: block; }
+.inv-action-item { display: block; width: 100%; padding: .5rem .75rem; text-align: left; background: #fff; border: 0; font-size: .95rem; }
+.inv-action-item:hover { background: #f8f9fa; }
 </style>
