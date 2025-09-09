@@ -1,0 +1,76 @@
+/* species.mobile.css (updated)
+   Mobile-first tweaks for the Species table:
+   - Collapses "View / Edit / Delete" buttons into a 3-dot menu per row
+   - Makes rows taller & content wrap nicely on small screens
+   - Actions column is first on both desktop & mobile
+*/
+
+/* Base: keep everything as-is on larger screens */
+.spm-toggle,
+.spm-menu { display: none; }
+
+/* Small screens: show menu toggle, hide bulky action buttons */
+@media (max-width: 576px) {
+  table.species-table td,
+  table#species-table td {
+    white-space: normal;
+    vertical-align: top;
+    padding: .65rem .5rem;
+  }
+
+  table.species-table tbody tr,
+  table#species-table tbody tr {
+    border-bottom: 1px solid rgba(0,0,0,.06);
+  }
+
+  /* Hide original action buttons on mobile */
+  td.actions .btn.action-btn { display: none !important; }
+  td.actions .btn { display: none !important; }
+
+  /* Show the three-dots toggle */
+  td.actions { position: relative; }
+  td.actions .spm-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 8px;
+  }
+
+  /* The dropdown menu (left-aligned because actions is first column) */
+  td.actions .spm-menu {
+    position: absolute;
+    left: .25rem; top: calc(100% + .25rem);
+    display: none;
+    min-width: 140px;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08);
+    z-index: 30;
+    overflow: hidden;
+  }
+  td.actions .spm-menu.spm-open { display: block; }
+
+  .spm-item {
+    display: block;
+    width: 100%;
+    padding: .5rem .75rem;
+    text-align: left;
+    background: #fff;
+    border: 0;
+    font-size: .95rem;
+  }
+  .spm-item:hover { background: #f8f9fa; }
+}
+
+/* Optional: slightly taller rows on mid screens too */
+@media (max-width: 768px) {
+  table.species-table td,
+  table#species-table td {
+    padding-top: .75rem;
+    padding-bottom: .75rem;
+  }
+}

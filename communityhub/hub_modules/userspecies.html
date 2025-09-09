@@ -1,109 +1,23 @@
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">My Species</h4>
-  <div>
-    <button class="btn btn-success btn-sm me-1" onclick="openAddSpecies()">Add</button>
-    <button class="btn btn-outline-primary btn-sm me-1" onclick="downloadInventoryTemplate()">Download Example</button>
-    <label class="btn btn-outline-success btn-sm mb-0">
-      Upload List <input type="file" id="csvUpload" accept=".csv" hidden onchange="importInventory()">
-    </label>
-  </div>
-</div>
-
-<!-- Alerts & info -->
-<div id="import-errors" class="mb-3"></div>
-
-<!-- View controls -->
-<div id="inventory-controls" class="d-flex flex-wrap align-items-start gap-3 mb-3">
-  <!-- Vertical view toggle -->
-  <div class="btn-group-vertical btn-group-sm" role="group" aria-label="View toggle">
-    <button class="btn btn-outline-secondary active" id="inv-toggle-table" type="button">Table</button>
-    <button class="btn btn-outline-secondary" id="inv-toggle-cards" type="button">Cards</button>
-  </div>
-
-  <!-- Filters/sort -->
-  <div class="d-flex flex-column flex-grow-1 gap-2">
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-      <input type="text" id="inventory-search" class="form-control form-control-sm" placeholder="Search…">
-      <select id="inventory-sort" class="form-select form-select-sm" style="min-width: 160px;">
-        <option value="species_az">Species A→Z</option>
-        <option value="species_za">Species Z→A</option>
-        <option value="morph_az">Morph A→Z</option>
-        <option value="type_az">Type A→Z</option>
-        <option value="created_new">Newest</option>
-        <option value="created_old">Oldest</option>
-      </select>
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="checkbox" id="group-by-type">
-        <label class="form-check-label small" for="group-by-type">Group by type</label>
+<!-- userspecies.html — shell that loads Cards/Table subviews -->
+<link rel="stylesheet" href="/communityhub/hub_modules/userspecies/userspecies.css">
+<div id="userspecies-shell">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">My Species</h4>
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-success btn-sm" id="add-species-top">Add</button>
+      <div class="position-relative" id="share-menu-wrap">
+        <button class="btn btn-sm btn-outline-primary" id="share-list-btn" title="Copy a public link to your list">Share</button>
+        <div class="dropdown-menu shadow" id="share-menu" style="display:none; position:absolute; right:0; top:110%; z-index:1000; min-width: 220px;">
+          <button class="dropdown-item" id="copy-inventory-link" type="button">Copy Inventory Link</button>
+          <button class="dropdown-item" id="copy-wishlist-link" type="button">Copy Wishlist Link</button>
+        </div>
+      </div>
+      <div class="btn-group" role="group" aria-label="View switcher">
+        <a href="?module=userspecies&view=table" class="btn btn-sm btn-outline-secondary" data-view="table">Table</a>
+        <a href="?module=userspecies&view=excel" class="btn btn-sm btn-outline-secondary" data-view="excel">Excel</a>
+        <a href="?module=userspecies&view=cards" class="btn btn-sm btn-outline-secondary" data-view="cards">Cards</a>
       </div>
     </div>
-    <div class="d-flex align-items-center flex-wrap gap-1">
-      <button type="button" id="type-chip-all" class="type-chip">All</button>
-      <div id="type-filters" class="d-flex flex-wrap gap-1"></div>
-    </div>
   </div>
+  <div id="userspecies-host"><p>Loading…</p></div>
 </div>
-
-<!-- Views -->
-<div id="inventory-table-container" class="mb-3">
-  <p>Loading inventory…</p>
-</div>
-<div id="inventory-cards-container" class="d-none"></div>
-
-<style>
-  .inventory-row:hover { background-color: #caf3c6; cursor: pointer; }
-  .inventory-row.selected { background-color: rgb(135, 231, 140) !important; }
-  .type-chip { border: 1px solid rgba(0,0,0,.1); padding: .2rem .6rem; border-radius: 999px; background:#f8f9fa; cursor:pointer; }
-  .type-chip.active { background:#d1f0d2; }
-  .type-header { position: sticky; top: 0; z-index: 1; background: #f8f9fa; }
-  .inv-card { width: 100%; max-width: 320px; }
-  .inv-card img { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; }
-  /* Compact vertical toggle */
-  #inventory-controls .btn-group-vertical .btn { padding: .25rem .5rem; }
-</style>
-
-
-<style>
-/* --- Mobile actions menu for species table (≤576px) --- */
-@media (max-width: 576px) {
-  /* allow wrapping & taller rows on phones */
-  #inventory-table-container table td { white-space: normal; vertical-align: top; padding: .65rem .5rem; }
-
-  /* Hide bulky action buttons on mobile (we will show a down-arrow menu) */
-  #inventory-table-container table td.actions .btn { display: none !important; }
-
-  /* Avoid text caret/selection in the actions cell on tap */
-  #inventory-table-container table td.actions { position: relative; user-select: none; }
-
-  #inventory-table-container table td.actions .spm-toggle {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
-  }
-  #inventory-table-container table td.actions .spm-menu {
-    position: absolute; left: .25rem; top: calc(100% + .25rem);
-    display: none; min-width: 160px; background: #fff; border: 1px solid rgba(0,0,0,.08);
-    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.08); z-index: 30; overflow: hidden;
-  }
-  #inventory-table-container table td.actions .spm-menu.spm-open { display: block; }
-  #inventory-table-container table .spm-item { display: block; width: 100%; padding: .5rem .75rem; text-align: left; background: #fff; border: 0; font-size: .95rem; }
-  #inventory-table-container table .spm-item:hover { background: #f8f9fa; }
-}
-</style>
-
-<style>
-/* Card view action dropdown (both mobile & desktop) */
-.inv-action-wrap { position: relative; }
-.inv-action-toggle {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
-}
-.inv-action-menu {
-  position: absolute; right: 0; top: calc(100% + .25rem);
-  display: none; min-width: 160px; background: #fff; border: 1px solid rgba(0,0,0,.08);
-  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.08); z-index: 30; overflow: hidden;
-}
-.inv-action-menu.open { display: block; }
-.inv-action-item { display: block; width: 100%; padding: .5rem .75rem; text-align: left; background: #fff; border: 0; font-size: .95rem; }
-.inv-action-item:hover { background: #f8f9fa; }
-</style>

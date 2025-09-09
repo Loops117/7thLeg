@@ -13,7 +13,7 @@ let allPhotos = [];
 
   const { data: inventories, error } = await supabase
     .from("user_inventories")
-    .select("id, species, common_name, cover_image, insect_type, profiles(id, full_name)")
+    .select("id, species, common_name, morph_name, cover_image, insect_type, profiles(id, full_name)")
     .not("cover_image", "is", null);
 
   if (error || !inventories) {
@@ -52,6 +52,7 @@ function applyGalleryFilters() {
     const matchesSearch =
       p.species.toLowerCase().includes(search) ||
       (p.common_name || "").toLowerCase().includes(search) ||
+      (p.morph_name || "").toLowerCase().includes(search) ||
       (p.profiles?.full_name || "").toLowerCase().includes(search);
 
     const matchesType = !typeFilter || p.insect_type === typeFilter;
@@ -75,7 +76,7 @@ function renderGallery(data) {
       <div class="card h-100 shadow-sm" onclick="openViewSpecies('${inv.id}')">
         <img src="${inv.cover_image}" class="gallery-img" alt="${inv.species}">
         <div class="card-body text-center">
-          <h6 class="card-title"><i>${inv.species}</i></h6>
+          <h6 class="card-title"><i>${inv.species}</i>${inv.morph_name ? ` — ${inv.morph_name}` : ""}</h6>
           <p class="card-text">${inv.common_name || ""}</p>
           <small class="text-muted">
             Type: ${inv.insect_type || "Unknown"}<br>

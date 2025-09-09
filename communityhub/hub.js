@@ -42,7 +42,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   async function loadModule(name, userId = null, params = {}) {
+    
+    // Keep the URL canonical (strip stale params; flatten object ids)
     try {
+      const toPlain = (v) => {
+        if (v === undefined || v === null) return v;
+        if (typeof v === 'object') {
+          if (v && (typeof v.id === 'string' || typeof v.id === 'number')) return v.id;
+          if (v && (typeof v.value === 'string' || typeof v.value === 'number')) return v.value;
+          if (Array.isArray(v)) return v.join(',');
+          return String(v);
+        }
+        return v;
+      };
+      const norm = {};
+      if (params && typeof params === 'object') {
+        for (const [k, v] of Object.entries(params)) {
+          const pv = toPlain(v);
+          if (pv !== undefined && pv !== null && String(pv) !== '') norm[k] = pv;
+        }
+      }
+      const idPlain = toPlain(userId);
+      if (idPlain !== undefined && idPlain !== null && String(idPlain) !== '') norm.id = idPlain;
+      const usp = new URLSearchParams();
+      usp.set('module', name || 'home');
+      Object.entries(norm).forEach(([k, v]) => usp.set(k, v));
+      history.replaceState({ module: name, params: norm }, '', `/communityhub/hub.html?${usp.toString()}`);
+    } catch {}
+try {
       const res = await fetch(`hub_modules/${name}.html`);
       if (!res.ok) throw new Error(`Module ${name} not found`);
       const html = await res.text();

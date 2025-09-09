@@ -1,0 +1,42 @@
+
+/* userspecies shared styles */
+.inventory-row:hover { background-color: #caf3c6; cursor: pointer; }
+.inventory-row.selected { background-color: rgb(135, 231, 140) !important; }
+.type-chip { border: 1px solid rgba(0,0,0,.1); padding: .2rem .6rem; border-radius: 999px; background:#f8f9fa; cursor:pointer; }
+.type-chip.active { background:#d1f0d2; }
+.type-header { position: sticky; top: 0; z-index: 1; background: #f8f9fa; }
+.inv-card { width: 100%; max-width: 320px; }
+.inv-card img { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; }
+
+@media (max-width: 576px) {
+  #inventory-table-container table td { white-space: normal; vertical-align: top; padding: .65rem .5rem; }
+  #inventory-table-container table td.actions .btn { display: none !important; }
+  #inventory-table-container table td.actions { position: relative; user-select: none; }
+  #inventory-table-container table td.actions .spm-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
+  }
+  #inventory-table-container table td.actions .spm-menu {
+    position: absolute; left: .25rem; top: calc(100% + .25rem);
+    display: none; min-width: 160px; background: #fff; border: 1px solid rgba(0,0,0,.08);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.08); z-index: 30; overflow: hidden;
+  }
+  #inventory-table-container table td.actions .spm-menu.spm-open { display: block; }
+  #inventory-table-container table .spm-item { display: block; width: 100%; padding: .5rem .75rem; text-align: left; background: #fff; border: 0; font-size: .95rem; }
+  #inventory-table-container table .spm-item:hover { background: #f8f9fa; }
+}
+
+/* Card view action dropdown (both mobile & desktop) */
+.inv-action-wrap { position: relative; }
+.inv-action-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
+}
+.inv-action-menu {
+  position: absolute; right: 0; top: calc(100% + .25rem);
+  display: none; min-width: 160px; background: #fff; border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.08); z-index: 30; overflow: hidden;
+}
+.inv-action-menu.open { display: block; }
+.inv-action-item { display: block; width: 100%; padding: .5rem .75rem; text-align: left; background: #fff; border: 0; font-size: .95rem; }
+.inv-action-item:hover { background: #f8f9fa; }
