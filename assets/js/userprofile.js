@@ -27,7 +27,7 @@ console.log("✅ userprofile.js loaded");
   // Load inventory
   const { data: inventories } = await supabase
     .from("user_inventories")
-    .select("id, species, common_name, insect_type")
+    .select("id, species, morph_name, common_name, insect_type")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -40,6 +40,7 @@ console.log("✅ userprofile.js loaded");
         <thead class="table-light">
           <tr>
             <th>Species</th>
+            <th>Morph</th>
             <th>Common Name</th>
             <th>Type</th>
           </tr>
@@ -49,7 +50,8 @@ console.log("✅ userprofile.js loaded");
     for (let i of inventories) {
       html += `
     <tr>
-      <td><a href="/tabs/Inventory/view.species.html?id=${i.id}"><i>${i.species}</i></a></td>
+      <td>${i.species || ""}</td>
+      <td>${i.morph_name || ""}</td>
       <td>${i.common_name || ""}</td>
       <td>${i.insect_type || ""}</td>
     </tr>
@@ -76,7 +78,7 @@ console.log("✅ userprofile.js loaded");
         <thead class="table-light">
           <tr>
             <th>Species</th>
-            <th>Common Name</th>
+            <th>Morph</th>
             <th>Type</th>
             <th>Date Added</th>
           </tr>

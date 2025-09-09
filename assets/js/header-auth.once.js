@@ -110,4 +110,162 @@
     render(container, cache);
     console.log('✅ header-auth.once loaded (single fetch, no polling)');
   });
+
+  // ================= Notifications Bell (once) =================
+  if (!window.__HEADER_NOTIF_ONCE__) {
+    window.__HEADER_NOTIF_ONCE__ = true;
+
+    function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+    function timeAgo(ts){
+      try{
+        const d = (ts instanceof Date) ? ts : new Date(ts);
+        const s = Math.floor((Date.now()-d.getTime())/1000);
+        if (s<60) return s+'s';
+        const m = Math.floor(s/60); if (m<60) return m+'m';
+        const h = Math.floor(m/60); if (h<24) return h+'h';
+        const dd = Math.floor(h/24); if (dd<7) return dd+'d';
+        return d.toLocaleDateString();
+      }catch{ return ''; }
+    }
+
+    function ensureBellSlot(){
+      // Find the UL that contains #nav-user
+      const userLi = document.querySelector('#nav-user');
+      if (!userLi) return null;
+      const ul = userLi.closest('ul.navbar-nav');
+      if (!ul) return null;
+
+      let bell = document.getElementById('nav-notifications');
+      if (bell) return bell;
+
+      bell = document.createElement('li');
+      bell.id = 'nav-notifications';
+      bell.className = 'nav-item dropdown';
+
+      bell.innerHTML = `
+        <a class="nav-link position-relative" href="#" id="notifBell" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
+          <span class="me-1">🔔</span>
+          <span id="notifBadge" class="badge bg-danger rounded-pill position-absolute translate-middle" style="top:6px; right:0; display:none;">0</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" id="notifMenu" style="max-height:70vh; overflow:auto;">
+          <li><h6 class="dropdown-header">Notifications</h6></li>
+          <li id="notifItems"><div class="px-3 py-2 small text-muted">Loading…</div></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="/communityhub/hub.html?module=messages%2Fmessages_inbox">Open Inbox</a></li>
+        </ul>
+      `;
+
+      // Insert before user menu
+      ul.insertBefore(bell, userLi);
+      return bell;
+    }
+
+    function buildLink(n){
+      const meta = n?.metadata || {};
+      const base = '/communityhub/hub.html';
+      if (n.conversation_id) return `${base}?module=messages/conversation&id=${encodeURIComponent(n.conversation_id)}`;
+      const bId = meta.bulletin_id || meta.post_id || (meta.bulletin && meta.bulletin.id);
+      if (n.entity_type === 'bulletin_comment' || bId) return `${base}?module=bulletins/view&id=${encodeURIComponent(bId)}`;
+      if (n.entity_type === 'review' || meta.review_id){
+        const storeId = meta.store_id || meta.review_target_id;
+        const userId = meta.user_id || meta.reviewed_user_id;
+        if (storeId) return `${base}?module=store/view_store&id=${encodeURIComponent(storeId)}&sub=reviews`;
+        if (userId)  return `${base}?module=profile&id=${encodeURIComponent(userId)}&sub=reviews`;
+        return `${base}?module=home`;
+      }
+      if (n.entity_type === 'bulletin') return `${base}?module=bulletins/view&id=${encodeURIComponent(n.entity_id)}`;
+      return `${base}?module=home`;
+    }
+
+    function notifRow(n){
+      const url = buildLink(n);
+      const txt = n.snippet || (n.type ? String(n.type).replace(/_/g,' ') : 'Notification');
+      const ago = timeAgo(n.created_at);
+      const badge = !n.read_at ? '<span class="badge bg-primary ms-2">new</span>' : '';
+      return '<li><a class="dropdown-item d-flex align-items-start gap-2" href="'+esc(url)+'">'
+        + '<div class="flex-grow-1 small">'+esc(txt)+' '+badge+'</div>'
+        + '<div class="text-muted xsmall">'+esc(ago)+'</div>'
+        + '</a></li>';
+    }
+
+    async function fetchNotifications(limit=15){
+      const sb = window.supabase;
+      if (!sb || !sb.auth) return [];
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await sb
+        .from('notifications')
+        .select('id, type, snippet, created_at, read_at, entity_type, entity_id, conversation_id, actor_user_id, metadata')
+        .eq('recipient_user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) { console.warn('[notif] fetch error', error); return []; }
+      return data || [];
+    }
+
+    async function markAllRead(){
+      try{
+        const sb = window.supabase; if (!sb || !sb.auth) return;
+        const { data: { user } } = await sb.auth.getUser(); if (!user) return;
+        await sb.from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null).eq('recipient_user_id', user.id);
+      }catch{}
+    }
+
+    async function refreshMenu(){
+      ensureBellSlot();
+      const list = document.getElementById('notifItems');
+      const badge = document.getElementById('notifBadge');
+      if (!list) return;
+      list.innerHTML = '<div class="px-3 py-2 small text-muted">Loading…</div>';
+      const items = await fetchNotifications(15);
+      if (!items.length) {
+        list.innerHTML = '<div class="px-3 py-2 small text-muted">No notifications</div>';
+      } else {
+        list.innerHTML = items.map(notifRow).join('');
+      }
+      const unread = items.filter(x=>!x.read_at).length;
+      if (badge){
+        if (unread>0){ badge.style.display='inline-block'; badge.textContent = String(Math.min(unread,9)); }
+        else { badge.style.display='none'; }
+      }
+    }
+
+    function wireBell(){
+      const bellLi = ensureBellSlot(); if (!bellLi) return;
+      const menuEl = bellLi.querySelector('#notifMenu');
+      const bell = bellLi.querySelector('#notifBell');
+      if (!menuEl || !bell) return;
+
+      // If Bootstrap is available, refresh on dropdown show
+      const hasBs = !!(window.bootstrap && window.bootstrap.Dropdown);
+      if (hasBs){
+        bell.addEventListener('shown.bs.dropdown', function(){ markAllRead(); });
+        bell.addEventListener('show.bs.dropdown', function(){ refreshMenu(); });
+      } else {
+        // Fallback: click toggles menu + refresh
+        bell.addEventListener('click', function(e){
+          e.preventDefault();
+          const open = menuEl.classList.toggle('show');
+          if (open){ refreshMenu(); markAllRead(); }
+        });
+        document.addEventListener('click', function(e){
+          if (!bellLi.contains(e.target)) menuEl.classList.remove('show');
+        });
+      }
+    }
+
+    function initNotifications(){
+      ensureBellSlot();
+      wireBell();
+      // Initial preload (best-effort)
+      setTimeout(refreshMenu, 200);
+      // Periodic refresh
+      setInterval(refreshMenu, 60*1000);
+      // Refresh on auth change
+      try{ window.supabase?.auth?.onAuthStateChange?.(function(){ setTimeout(refreshMenu, 200); }); }catch{}
+    }
+
+    onDomReady(initNotifications);
+  }
+
 })();
