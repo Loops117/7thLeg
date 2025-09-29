@@ -21,7 +21,15 @@ const state = {
   SAVE_QUEUE: new Map(),
   SAVE_TIMERS: new Map(),
   NEW_ROW_SEQ: 0,
-  INSECT_TYPES: []
+  INSECT_TYPES: [],
+
+  SORT: { key: null, dir: 'asc' },            // current single-column sort (click header)
+  SORT_MULTI: [                                // initial multi-key sort on load
+    { key: 'species', dir: 'asc' },
+    { key: 'morph_name', dir: 'asc' },
+    { key: 'insect_type', dir: 'asc' }
+  ],
+  COL_WIDTHS: {},                              // column width overrides by key
 };
 /* -- GFR EARLY -- */
 
@@ -36,7 +44,41 @@ function getFilteredRows(){
       .includes(q)
   ));
 }
-try{if(typeof window!=='undefined') window.getFilteredRows=getFilteredRows;}catch{}const TABLE = 'user_inventories';
+try{if(typeof window!=='undefined') window.getFilteredRows=getFilteredRows;}catch{}
+
+function compareVals(a,b){
+  const sa = (a==null? '' : String(a)).toLowerCase();
+  const sb = (b==null? '' : String(b)).toLowerCase();
+  if (sa < sb) return -1;
+  if (sa > sb) return +1;
+  return 0;
+}
+function sortBySpec(rows, spec){
+  const arr = rows.slice(0);
+  if (!spec || !spec.length) return arr;
+  arr.sort((ra, rb) => {
+    for (const s of spec){
+      const k = s.key;
+      const dir = s.dir === 'desc' ? -1 : 1;
+      const cmp = compareVals(ra[k], rb[k]);
+      if (cmp !== 0) return cmp * dir;
+    }
+    return 0;
+  });
+  return arr;
+}
+function getSortedRows(){
+  const base = getFilteredRows();
+  if (state.SORT && state.SORT.key){
+    return sortBySpec(base, [state.SORT]);
+  }
+  if (state.SORT_MULTI && state.SORT_MULTI.length){
+    return sortBySpec(base, state.SORT_MULTI);
+  }
+  return base;
+}
+try{ if(typeof window!=='undefined') window.getSortedRows = getSortedRows; }catch{}
+const TABLE = 'user_inventories';
 const BUCKET = (window && window.USER_SPECIES_BUCKET) ? window.USER_SPECIES_BUCKET : 'user-inventories';
 const GALLERY_MAX = 5;
 
@@ -53,6 +95,9 @@ const app = {
     await fetchInsectTypes();
     if (!state.INSECT_TYPES.length) state.INSECT_TYPES = buildInsectTypes(state.ROWS);
     ui.renderGrid();
+    
+    injectExcelEnhanceStyles();
+
     ui.wireGlobalKeys();
     ui.announce('Loaded.');
   },
@@ -84,15 +129,19 @@ const ui = {
     if (!thead || !tbody) return;
     thead.innerHTML = `<tr>
       <th style="min-width:44px; position:sticky; left:0; background:#f8f9fa; z-index:2;">#</th>
-      ${state.COLS.map(c => `<th>${esc(c.label)}</th>`).join('')}
+      ${state.COLS.map((c,idx) => headerCellHtml(c, idx)).join('')}
       <th style="min-width:80px">Status</th>
       <th style="min-width:140px">Actions</th>
     </tr>`;
-    const rows = getFilteredRows();
+    const rows = getSortedRows();
     const html = rows.map((r, i) => rowHtml(r, i)).join('') + newRowHtml();
     tbody.innerHTML = html;
     this.wireCells(tbody);
     wireActionButtons();
+
+    wireHeaderSort();
+    wireColumnResizers();
+
     const host = $('#excel-grid-host');
     if (host){ host.style.maxHeight = '70vh'; host.style.overflow = 'auto'; }
   },
@@ -145,6 +194,105 @@ const ui = {
 };
 
 /* ---------------- render helpers ---------------- */
+
+function getSortDirFor(key){
+  if (state.SORT && state.SORT.key === key) return state.SORT.dir;
+  // show multi-sort only if no single sort active
+  if ((!state.SORT || !state.SORT.key) && Array.isArray(state.SORT_MULTI)){
+    const e = state.SORT_MULTI.find(s=>s.key===key);
+    return e ? e.dir : null;
+  }
+  return null;
+}
+function headerCellHtml(col, idx){
+  const dir = getSortDirFor(col.key);
+  const arrow = dir ? (dir==='asc' ? ' ▲' : ' ▼') : '';
+  const w = state.COL_WIDTHS[col.key];
+  const style = (w ? `style="width:${w}px; min-width:${w}px;"` : '');
+  return `<th data-colkey="${esc(col.key)}" ${style} class="excel-th-sort">
+    <button type="button" class="btn btn-link p-0 text-decoration-none header-sort-btn">${esc(col.label)}${arrow}</button>
+    <span class="col-resizer" data-col-index="${idx}"></span>
+  </th>`;
+}
+function wireHeaderSort(){
+  const head = document.querySelector('#excel-grid thead');
+  if (!head) return;
+  head.querySelectorAll('th .header-sort-btn').forEach(btn => {
+    btn.addEventListener('click', (e)=>{
+      const th = btn.closest('th');
+      const key = th?.getAttribute('data-colkey');
+      if (!key) return;
+      const current = (state.SORT && state.SORT.key === key) ? state.SORT.dir : null;
+      const nextDir = current === 'asc' ? 'desc' : (current === 'desc' ? null : 'asc');
+      if (nextDir){
+        state.SORT = { key, dir: nextDir };
+      } else {
+        state.SORT = { key: null, dir: 'asc' };
+      }
+      // when single sort is active, ignore multi
+      document.querySelector('#excel-grid thead').innerHTML = `<tr>
+        <th style="min-width:44px; position:sticky; left:0; background:#f8f9fa; z-index:2;">#</th>
+        ${state.COLS.map((c,idx) => headerCellHtml(c, idx)).join('')}
+        <th style="min-width:80px">Status</th>
+        <th style="min-width:140px">Actions</th>
+      </tr>`;
+      const tbody = document.querySelector('#excel-grid tbody');
+      tbody.innerHTML = getSortedRows().map((r,i)=>rowHtml(r,i)).join('') + newRowHtml();
+      ui.wireCells(tbody);
+      wireActionButtons();
+      wireHeaderSort();
+      wireColumnResizers();
+      ui.updateCount();
+    });
+  });
+}
+/* ---------- column resize (basic drag) ---------- */
+let _resize = null;
+function wireColumnResizers(){
+  const head = document.querySelector('#excel-grid thead tr');
+  if (!head) return;
+  head.querySelectorAll('th .col-resizer').forEach((h, idx)=>{
+    h.addEventListener('mousedown', (e)=>{
+      e.preventDefault();
+      const th = h.closest('th');
+      if (!th) return;
+      const key = th.getAttribute('data-colkey');
+      const startX = e.clientX;
+      const startW = th.getBoundingClientRect().width;
+      _resize = { th, key, startX, startW };
+      document.body.classList.add('col-resize-active');
+    });
+  });
+  document.addEventListener('mousemove', (e)=>{
+    if (!_resize) return;
+    const dx = e.clientX - _resize.startX;
+    const newW = Math.max(80, Math.round(_resize.startW + dx));
+    _resize.th.style.width = newW+'px';
+    _resize.th.style.minWidth = newW+'px';
+    if (_resize.key) state.COL_WIDTHS[_resize.key] = newW;
+    // apply to all tds of that column index
+    const index = Array.from(_resize.th.parentElement.children).indexOf(_resize.th); // th index in row
+    const body = document.querySelector('#excel-grid tbody');
+    if (body){
+      for (const tr of body.children){
+        if (tr.nodeName !== 'TR') continue;
+        const tds = tr.children;
+        const td = tds[index];
+        if (td && td.classList.contains('cell-wrapper')){
+          td.style.width = newW+'px';
+          td.style.minWidth = newW+'px';
+        }
+      }
+    }
+  });
+  document.addEventListener('mouseup', ()=>{
+    if (_resize){
+      document.body.classList.remove('col-resize-active');
+      _resize = null;
+    }
+  });
+}
+
 function rowHtml(r, idx){
   const rid = r.id || `__new__:${++state.NEW_ROW_SEQ}`;
   const cells = state.COLS.map(c => cellHtml(rid, c, r[c.key]));
@@ -189,7 +337,7 @@ function cellHtml(rid, col, val){
     default:
       inner = `<div class="cell-edit" contenteditable="true" spellcheck="false" style="min-width:120px; min-height:20px; outline:none;">${esc(safe(val))}</div>`;
   }
-  return `<td class="cell" data-key="${col.key}" data-type="${col.type||'text'}" data-rowid="${rid}"${required}>${inner}</td>`;
+  return `<td class="cell cell-wrapper" data-key="${col.key}" data-type="${col.type||'text'}" data-rowid="${rid}"${required}>${inner}</td>`;
 }
 
 /* ---------------- interactions ---------------- */
@@ -526,3 +674,23 @@ try{
     if (!window.userspeciesUploadGallery) window.userspeciesUploadGallery = (id) => userspeciesHandleGalleryUpload(id);
   }
 }catch{}
+
+
+function injectExcelEnhanceStyles(){
+  if (document.getElementById('excel-enhance-styles')) return;
+  const css = `
+#excel-grid thead th { position: relative; white-space: nowrap; }
+#excel-grid thead th .header-sort-btn { font-weight: 600; }
+#excel-grid thead th .col-resizer {
+  position: absolute; top:0; right: -3px; width: 6px; height: 100%;
+  cursor: col-resize; user-select: none;
+}
+.col-resize-active { cursor: col-resize !important; }
+#excel-grid td.cell-wrapper { white-space: nowrap; }
+`;
+  const s = document.createElement('style');
+  s.id = 'excel-enhance-styles';
+  s.textContent = css;
+  document.head.appendChild(s);
+}
+
