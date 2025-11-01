@@ -14,7 +14,11 @@ const state = {
     {key:'source',label:'Source',type:'text'},
     {key:'price',label:'Price',type:'text'},
     {key:'date_obtained',label:'Date Obtained',type:'date'},
-    {key:'acquisition_notes',label:'Acquisition Notes',type:'text'}
+    {key:'acquisition_notes',label:'Acquisition Notes',type:'text'},
+
+    // --- Added per request (no other changes) ---
+    {key:'availability',label:'Available',type:'boolean'},
+    {key:'avail_notes',label:'Availability Notes (HTML OK)',type:'text'}
   ],
   ROWS: [],
   FILTER: '',
@@ -39,7 +43,7 @@ function getFilteredRows(){
   if (!state.FILTER) return state.ROWS;
   const q = String(state.FILTER || '').toLowerCase();
   return state.ROWS.filter(r => (
-    `${r.species||''} ${r.morph_name||''} ${r.insect_type||''} ${r.source||''} ${r.price||''} ${r.date_obtained||''} ${r.acquisition_notes||''}`
+    `${r.species||''} ${r.morph_name||''} ${r.insect_type||''} ${r.source||''} ${r.price||''} ${r.date_obtained||''} ${r.acquisition_notes||''} ${r.avail_notes||''}`
       .toLowerCase()
       .includes(q)
   ));
@@ -95,7 +99,7 @@ const app = {
     await fetchInsectTypes();
     if (!state.INSECT_TYPES.length) state.INSECT_TYPES = buildInsectTypes(state.ROWS);
     ui.renderGrid();
-    
+
     injectExcelEnhanceStyles();
 
     ui.wireGlobalKeys();
@@ -105,7 +109,7 @@ const app = {
     // Only fetch the fields we display + id
     const { data, error } = await supabase
       .from(TABLE)
-      .select('id, species, morph_name, insect_type, source, price, date_obtained, acquisition_notes, cover_image, gallery_images')
+      .select('id, species, morph_name, insect_type, source, price, date_obtained, acquisition_notes, availability, avail_notes, cover_image, gallery_images')
       .eq('user_id', state.USER_ID)
       .order('created_at', { ascending: false });
     if (error){ console.warn(error); return ui.renderError('Failed to load inventory.'); }
@@ -266,7 +270,7 @@ function wireColumnResizers(){
   document.addEventListener('mousemove', (e)=>{
     if (!_resize) return;
     const dx = e.clientX - _resize.startX;
-    const newW = Math.max(80, Math.round(_resize.startW + dx));
+       const newW = Math.max(80, Math.round(_resize.startW + dx));
     _resize.th.style.width = newW+'px';
     _resize.th.style.minWidth = newW+'px';
     if (_resize.key) state.COL_WIDTHS[_resize.key] = newW;
@@ -310,7 +314,11 @@ function rowHtml(r, idx){
 }
 function newRowHtml(){
   const rid = `__new__:${++state.NEW_ROW_SEQ}`;
-  const cells = state.COLS.map(c => cellHtml(rid, c, ''));
+  const cells = state.COLS.map(c => {
+    // default availability to false (unchecked) in the UI for new rows
+    const v = (c.key === 'availability') ? false : '';
+    return cellHtml(rid, c, v);
+  });
   return `<tr data-rowid="${rid}" class="new-row">
     <td class="text-muted" style="position:sticky; left:0; background:#fff; z-index:1;">+</td>
     ${cells.join('')}
@@ -329,7 +337,7 @@ function cellHtml(rid, col, val){
       break;
     }
     case 'boolean':
-      inner = `<input type="checkbox" ${safe(val)==='true'||val===true?'checked':''} class="form-check-input">`; break;
+      inner = `<input type="checkbox" ${val===true||safe(val)==='true'?'checked':''} class="form-check-input">`; break;
     case 'date':
       inner = `<input type="date" value="${safe(val).slice(0,10)}" class="form-control form-control-sm">`; break;
     case 'number':
@@ -410,9 +418,8 @@ function addBlankRow(){
   const tbody = document.querySelector('#excel-grid tbody');
   if (!tbody) return null;
   tbody.insertAdjacentHTML('beforeend', newRowHtml());
-  const tr = tbody.lastElementChild;
   ui.wireCells(tbody);
-  return tr;
+  return tbody.lastElementChild;
 }
 function move(td, dRow, dCol){
   const { row, col } = tdPos(td);
@@ -467,7 +474,7 @@ async function saveRow(rowId, tr){
     const current = tr.getAttribute('data-rowid');
     if (current && !String(current).startsWith('__new__')) rowId = current;
   }
-const staged = state.SAVE_QUEUE.get(rowId);
+  const staged = state.SAVE_QUEUE.get(rowId);
   if (!staged) return;
   const status = tr?.querySelector('.status');
   if (status) status.textContent = 'saving…';
@@ -479,24 +486,23 @@ const staged = state.SAVE_QUEUE.get(rowId);
   try{
     let res;
     if (String(rowId).startsWith('__new__')){
-record.user_id = state.USER_ID;
+      record.user_id = state.USER_ID;
       res = await supabase.from(TABLE).insert(record).select().single();
       if (res.error) throw res.error;
       const newId = res.data.id;
       tr?.setAttribute('data-rowid', newId);
-tr?.classList.remove('new-row');
-  // Update all cells to carry the real row id
-  try{ tr?.querySelectorAll('td.cell').forEach(td => td.dataset.rowid = newId); }catch{}
-// enable actions on this row
+      tr?.classList.remove('new-row');
+      // Update all cells to carry the real row id
+      try{ tr?.querySelectorAll('td.cell').forEach(td => td.dataset.rowid = newId); }catch{}
+      // enable actions on this row
       const actions = tr.querySelector('.actions');
       if (actions){ actions.innerHTML = `<button type="button" class="btn btn-sm btn-outline-secondary act-cover" title="Upload cover" data-id="${newId}">Cover</button>
       <button type="button" class="btn btn-sm btn-outline-secondary act-gallery" title="Upload gallery" data-id="${newId}">Gallery</button>`; }
       ensureBlankRow();
-  // Clear any pending timers/queue for the old temp id
-  try{ clearTimeout(state.SAVE_TIMERS.get(rowId)); state.SAVE_TIMERS.delete(rowId); }catch{}
-  state.SAVE_QUEUE.delete(rowId);
-}
-else {
+      // Clear pending timer/queue for the temp id
+      try{ clearTimeout(state.SAVE_TIMERS.get(rowId)); state.SAVE_TIMERS.delete(rowId); }catch{}
+      state.SAVE_QUEUE.delete(rowId);
+    } else {
       res = await supabase.from(TABLE).update(record).eq('id', rowId).select().single();
       if (res.error) throw res.error;
     }
@@ -693,4 +699,3 @@ function injectExcelEnhanceStyles(){
   s.textContent = css;
   document.head.appendChild(s);
 }
-

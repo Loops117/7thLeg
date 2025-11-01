@@ -1,4 +1,3 @@
-
 import { escapeHtml, placeholderIcon, pushAlert, wireCommonActions } from './shared.js';
 
 let inventoryData = [];
@@ -24,22 +23,36 @@ function rebuildTypeChips(){
   const host = document.getElementById('type-filters');
   const btnAll = document.getElementById('type-chip-all');
   if (!host) return;
+
   const types = Array.from(new Set(inventoryData.map(i => (i.insect_type || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  const allActive = INV_STATE.disabledTypes.size === 0;
+
+  // Build chips: .active means green (visible)
   host.innerHTML = types.map(t => {
-    const enabled = !INV_STATE.disabledTypes.has(t);
-    const cls = enabled ? 'enabled' : 'disabled';
+    const isVisible = !INV_STATE.disabledTypes.has(t);
+    const cls = (!allActive && isVisible) ? 'active' : '';
     return `<button type="button" class="type-chip ${cls}" data-type="${escapeHtml(t)}">${escapeHtml(t)}</button>`;
   }).join('');
+
+  // "All" bubble state
   if (btnAll){
-    btnAll.classList.toggle('active', INV_STATE.disabledTypes.size === 0);
-    btnAll.onclick = () => { INV_STATE.disabledTypes.clear(); rebuildTypeChips(); render(); };
+    btnAll.classList.toggle('active', allActive);
+    btnAll.onclick = () => {
+      INV_STATE.disabledTypes.clear();
+      rebuildTypeChips();
+      render();
+    };
   }
+
+  // Individual chip click -> toggle visibility
   host.querySelectorAll('.type-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       const t = btn.getAttribute('data-type');
+      if (!t) return;
       if (INV_STATE.disabledTypes.has(t)) INV_STATE.disabledTypes.delete(t);
       else INV_STATE.disabledTypes.add(t);
-      rebuildTypeChips(); render();
+      rebuildTypeChips();
+      render();
     });
   });
 }
@@ -48,11 +61,11 @@ async function loadInventory(){
   const { data: { user } } = await supabase.auth.getUser();
   const tableC = document.getElementById('inventory-table-container');
   const alerts = document.getElementById('import-errors');
-  alerts && (alerts.innerHTML = '');
-  if (!user){ tableC && (tableC.innerHTML = "<p class='text-danger'>Not logged in.</p>"); return; }
+  if (alerts) alerts.innerHTML = '';
+  if (!user){ if (tableC) tableC.innerHTML = "<p class='text-danger'>Not logged in.</p>"; return; }
   const { data: inventories, error } = await supabase.from('user_inventories').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-  if (error){ console.warn('loadInventory error', error); tableC && (tableC.innerHTML = "<p class='text-danger'>Failed to load inventory.</p>"); return; }
-  if (!inventories || inventories.length === 0){ tableC && (tableC.innerHTML = "<p>No species in your inventory yet.</p>"); return; }
+  if (error){ console.warn('loadInventory error', error); if (tableC) tableC.innerHTML = "<p class='text-danger'>Failed to load inventory.</p>"; return; }
+  if (!inventories || inventories.length === 0){ if (tableC) tableC.innerHTML = "<p>No species in your inventory yet.</p>"; return; }
   inventoryData = inventories.slice();
   rebuildTypeChips();
   render();
@@ -84,6 +97,7 @@ function render(){
   renderTable(rows);
 }
 
+// Build a row (includes availability checkbox)
 function rowHtml(i){
   const imgTag = i.cover_image ? `<img src="${i.cover_image}" alt="${escapeHtml(i.species || '')}" style="height:30px; width:auto;">` : placeholderIcon(30);
   return `<tr class="inventory-row" id="row-${i.id}" data-inventory-id="${i.id}">
@@ -95,6 +109,9 @@ function rowHtml(i){
     <td><i>${escapeHtml(i.species || '')}</i></td>
     <td><i>${escapeHtml(i.morph_name || '')}</i></td>
     <td>${escapeHtml(i.insect_type || '')}</td>
+    <td class="text-center" style="min-width:90px;">
+      <input type="checkbox" class="form-check-input avail-toggle" ${i.availability ? 'checked' : ''} aria-label="Available">
+    </td>
     <td>${imgTag}</td>
   </tr>`;
 }
@@ -104,35 +121,66 @@ function renderTable(rows){
   if (!host) return;
   if (!rows.length){ host.innerHTML = "<p>No results.</p>"; return; }
 
+  const tableStart = `<div class="table-responsive" style="max-height:70vh; overflow-x:auto; overflow-y:auto">
+    <table id="species-table" class="table table-bordered table-hover align-middle text-nowrap">
+      <thead class="table-light sticky-top"><tr>
+        <th class="actions" style="min-width:56px;">Actions</th>
+        <th>Species</th>
+        <th>Morph</th>
+        <th>Type</th>
+        <th>Available</th>
+        <th style="width:50px;">Image</th>
+      </tr></thead><tbody>`;
+  const tableEnd = `</tbody></table></div>`;
+
   if (INV_STATE.groupByType){
     const buckets = {};
     for (const r of rows){ const t = (r.insect_type || '—').trim(); (buckets[t] ||= []).push(r); }
-    let html = `<div class="table-responsive" style="max-height:70vh; overflow-x:auto; overflow-y:auto">`;
-    html += `<table id="species-table" class="table table-bordered table-hover align-middle text-nowrap"><thead class="table-light sticky-top"><tr>
-      <th class="actions" style="min-width:56px;">Actions</th><th>Species</th><th>Morph</th><th>Type</th><th style="width:50px;">Image</th></tr></thead><tbody>`;
+    let html = tableStart;
     for (const t of Object.keys(buckets).sort((a,b)=>a.localeCompare(b))){
-      html += `<tr class="type-header"><td colspan="5"><strong>${t}</strong> <span class="text-muted">(${buckets[t].length})</span></td></tr>`;
+      html += `<tr class="type-header"><td colspan="6"><strong>${escapeHtml(t)}</strong> <span class="text-muted">(${buckets[t].length})</span></td></tr>`;
       for (const i of buckets[t]) html += rowHtml(i);
     }
-    html += `</tbody></table></div>`;
+    html += tableEnd;
     host.innerHTML = html;
-    try { if (window.__enhanceSpeciesTable) window.__enhanceSpeciesTable(); } catch(e){}
   } else {
-    let html = `<div class="table-responsive" style="max-height:70vh; overflow-x:auto; overflow-y:auto">`;
-    html += `<table id="species-table" class="table table-bordered table-hover align-middle text-nowrap"><thead class="table-light sticky-top"><tr>
-      <th class="actions" style="min-width:56px;">Actions</th><th>Species</th><th>Morph</th><th>Type</th><th style="width:50px;">Image</th></tr></thead><tbody>`;
+    let html = tableStart;
     for (const i of rows) html += rowHtml(i);
-    html += `</tbody></table></div>`;
+    html += tableEnd;
     host.innerHTML = html;
-    try { if (window.__enhanceSpeciesTable) window.__enhanceSpeciesTable(); } catch(e){}
   }
 
+  // Row selection highlight
   document.querySelectorAll("#inventory-table-container .inventory-row").forEach(row => {
     row.addEventListener("click", () => {
       document.querySelectorAll("#inventory-table-container .inventory-row").forEach(r => r.classList.remove("selected"));
       row.classList.add("selected");
     });
   });
+
+  // Availability toggle (delegated)
+  host.addEventListener('change', async (e) => {
+    const cb = e.target.closest && e.target.closest('.avail-toggle');
+    if (!cb) return;
+    const tr = e.target.closest('tr.inventory-row');
+    const id = tr && tr.getAttribute('data-inventory-id');
+    if (!id) return;
+    const val = !!cb.checked;
+    try {
+      const { error } = await supabase.from('user_inventories').update({ availability: val }).eq('id', id);
+      if (error) throw error;
+      const row = inventoryData.find(r => r.id === id);
+      if (row) row.availability = val;
+      if (typeof pushAlert === 'function') pushAlert('Availability updated.', 'success');
+    } catch (err) {
+      console.warn('availability update failed', err);
+      cb.checked = !val; // revert
+      if (typeof pushAlert === 'function') pushAlert('Failed to update availability.', 'danger');
+    }
+  });
+
+  // Mobile enhancer re-run after render
+  try { if (window.__enhanceSpeciesTable) window.__enhanceSpeciesTable(); } catch(e){}
 }
 
 // Mobile enhancer (3-dot -> down-arrow menu)
