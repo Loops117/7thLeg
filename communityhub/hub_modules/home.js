@@ -564,34 +564,34 @@ list.innerHTML = items.map(c => `
       return wrap;
     }
 
-    async function renderAuctionsBlock(supabase){
-      const wrap = document.createElement("div");
-      wrap.className = "card border-0 shadow-sm rounded-4";
-      try {
-        const { data } = await supabase.from("user_auctions").select("id, description, common_name, current_bid, starting_bid, end_date").order("created_at",{ascending:false}).limit(6);
-        const items = data||[];
-        wrap.innerHTML = `<div class="card-body">
-          <div class="d-flex alignments-center justify-content-between mb-2"><strong>Recent Auctions</strong>
-            <a class="small text-decoration-none" href="#" data-role="see-auctions">See all</a></div>
-          <div class="d-flex flex-column gap-2">
-            ${items.length?items.map(a=>{const title=(a.description?.trim()||a.common_name?.trim()||"Auction");const bid=(a.current_bid??a.starting_bid??0);const money=Number(bid).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-              return `<div><a href="#" data-auction-id="${a.id}" class="open-auction-card">${escapeHtml(title)}</a> <span class="text-muted">— $${money}</span></div>`;}).join(""):`<div class="text-muted small">No auctions found</div>`}
-          </div></div>`;
-        wrap.querySelector('[data-role="see-auctions"]')?.addEventListener("click", (e)=>{
-          e.preventDefault();
-          try{ if (typeof window.loadModule === "function") loadModule("auctions_trades"); else window.location.href="/communityhub/hub.html?module=auctions_trades"; }catch{ window.location.href="/communityhub/hub.html?module=auctions_trades"; }
-        });
-        wrap.querySelectorAll("a.open-auction-card").forEach(el=>el.addEventListener("click",(e)=>{
-          e.preventDefault(); const id=el.getAttribute("data-auction-id");
-          try{ if(typeof window.loadModule==="function") loadModule("auctions/auction_card",{id});
-               else window.location.href=`/communityhub/hub.html?module=auctions/auction_card&id=${encodeURIComponent(id)}`;
-          }catch{
-            window.location.href=`/communityhub/hub.html?module=auctions/auction_card&id=${encodeURIComponent(id)}`;
-          }
-        }));
-      } catch {}
-      return wrap;
-    }
+  //  async function renderAuctionsBlock(supabase){
+  //    const wrap = document.createElement("div");
+  //    wrap.className = "card border-0 shadow-sm rounded-4";
+  //    try {
+  //      const { data } = await supabase.from("user_auctions").select("id, description, common_name, current_bid, starting_bid, end_date").order("created_at",{ascending:false}).limit(6);
+  //      const items = data||[];
+  //      wrap.innerHTML = `<div class="card-body">
+  //        <div class="d-flex alignments-center justify-content-between mb-2"><strong>Recent Auctions</strong>
+  //          <a class="small text-decoration-none" href="#" data-role="see-auctions">See all</a></div>
+  //        <div class="d-flex flex-column gap-2">
+  //          ${items.length?items.map(a=>{const title=(a.description?.trim()||a.common_name?.trim()||"Auction");const bid=(a.current_bid??a.starting_bid??0);const money=Number(bid).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  //            return `<div><a href="#" data-auction-id="${a.id}" class="open-auction-card">${escapeHtml(title)}</a> <span class="text-muted">— $${money}</span></div>`;}).join(""):`<div class="text-muted small">No auctions found</div>`}
+  //        </div></div>`;
+  //      wrap.querySelector('[data-role="see-auctions"]')?.addEventListener("click", (e)=>{
+  //        e.preventDefault();
+  //        try{ if (typeof window.loadModule === "function") loadModule("auctions_trades"); else window.location.href="/communityhub/hub.html?module=auctions_trades"; }catch{ window.location.href="/communityhub/hub.html?module=auctions_trades"; }
+  //      });
+  //      wrap.querySelectorAll("a.open-auction-card").forEach(el=>el.addEventListener("click",(e)=>{
+  //        e.preventDefault(); const id=el.getAttribute("data-auction-id");
+  //        try{ if(typeof window.loadModule==="function") loadModule("auctions/auction_card",{id});
+  //             else window.location.href=`/communityhub/hub.html?module=auctions/auction_card&id=${encodeURIComponent(id)}`;
+  //        }catch{
+  //          window.location.href=`/communityhub/hub.html?module=auctions/auction_card&id=${encodeURIComponent(id)}`;
+  //        }
+  //      }));
+  //    } catch {}
+  //    return wrap;
+  //  }
 
     async function renderTradesBlock(supabase){
       const wrap = document.createElement("div");
