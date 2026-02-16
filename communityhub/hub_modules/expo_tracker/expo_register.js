@@ -59,6 +59,13 @@ if (els.form) {
     const supabase = getSupabase();
     if (!supabase) { setStatus("Supabase not initialized.", "error"); return; }
 
+
+    // Must be logged in to submit
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    const user = authData?.user || null;
+    if (authErr || !user?.id) { setStatus("You must be logged in to submit expos.", "error"); return; }
+
+
     const name = (els.name.value || "").trim();
     if (!name) { setStatus("Expo name is required.", "error"); return; }
 
@@ -79,7 +86,8 @@ if (els.form) {
       lat: els.lat.value ? parseFloat(els.lat.value) : null,
       lng: els.lng.value ? parseFloat(els.lng.value) : null,
       approved: false,
-    };
+          submitted_by: user.id,
+      };
 
     const { data: expoRes, error: expoErr } = await supabase
       .from("expos").insert(expoPayload).select("id").single();

@@ -78,15 +78,32 @@ async function start(){
     selectedTitle: document.getElementById("x-selected-title"),
     selectedBody: document.getElementById("x-selected-body"),
     selectedToggle: document.getElementById("x-selected-toggle"),
-    searchArea: document.getElementById("x-search-area")
+    searchArea: document.getElementById("x-search-area"),
+    vMy: document.getElementById("x-view-my"),
+    myTable: document.getElementById("x-my-table"),
+    myRefresh: document.getElementById("x-my-refresh"),
+    myStatus: document.getElementById("x-my-status")
   };
   if (!els.tabs || !els.vExplore) return;
+
+/* ------------------------------ Auth helper ----------------------------- */
+async function getCurrentUser(){
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) return null;
+    return data?.user || null;
+  } catch(e){
+    return null;
+  }
+}
+
 
   // filters
   els.clear && els.clear.addEventListener("click", () => { if (els.search) els.search.value = ""; refreshCurrentView(); });
   els.search && els.search.addEventListener("input", debounce(() => refreshCurrentView(), 250));
   els.state && els.state.addEventListener("change", refreshCurrentView);
   els.openReg && els.openReg.addEventListener("click", onOpenModal);
+  els.myRefresh && els.myRefresh.addEventListener("click", () => loadMySubmissions());
 
   if (els.selectedToggle && els.selectedBody){
     els.selectedToggle.onclick = () => {
@@ -115,6 +132,16 @@ async function start(){
   // initial load
   if (v === "explore") { await loadExplore(); } else { refreshCurrentView(); }
 
+
+// refresh active view after a create/edit save
+window.addEventListener("expo:saved", () => {
+  const view = els.tabs.querySelector(".nav-link.active")?.getAttribute("data-view") || "explore";
+  if (view === "my") loadMySubmissions();
+  if (view === "explore") loadExplore();
+  if (view === "calendar") loadCalendar();
+});
+
+
   /* --------------------------- view management --------------------------- */
   function setActiveTab(view){
     const links = els.tabs.querySelectorAll(".nav-link");
@@ -124,8 +151,10 @@ async function start(){
 
     els.vExplore.classList.add("d-none");
     els.vCalendar.classList.add("d-none");
+    els.vMy && els.vMy.classList.add("d-none");
     if (view === "explore") els.vExplore.classList.remove("d-none");
     if (view === "calendar") els.vCalendar.classList.remove("d-none");
+    if (view === "my" && els.vMy) els.vMy.classList.remove("d-none");
 
     const p = new URLSearchParams(window.location.search);
     p.set("view", view);
@@ -137,7 +166,83 @@ async function start(){
     const view = els.tabs.querySelector(".nav-link.active")?.getAttribute("data-view") || "explore";
     if (view === "explore") return loadExplore();
     if (view === "calendar") return loadCalendar();
+    if (view === "my") return loadMySubmissions();
   }
+
+
+/* --------------------------- My submissions view ------------------------- */
+async function loadMySubmissions(){
+  if (!els.myTable) return;
+  els.myStatus && (els.myStatus.textContent = "");
+  els.myTable.innerHTML = `<tr><td colspan="4" class="text-muted small">Loading…</td></tr>`;
+
+  const user = await getCurrentUser();
+  if (!user?.id){
+    els.myStatus && (els.myStatus.textContent = "You must be logged in to view your submissions.");
+    els.myTable.innerHTML = `<tr><td colspan="4" class="text-muted small">Not logged in.</td></tr>`;
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("expos")
+    .select("id, name, city, state, venue_name, approved, created_at")
+    .eq("submitted_by", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error){
+    console.error("❌ my submissions load failed:", error);
+    els.myStatus && (els.myStatus.textContent = "Failed to load your submissions.");
+    els.myTable.innerHTML = `<tr><td colspan="4" class="text-muted small">Error loading submissions.</td></tr>`;
+    return;
+  }
+
+  const rows = data || [];
+  if (!rows.length){
+    els.myTable.innerHTML = `<tr><td colspan="4" class="text-muted small">You haven’t submitted any expos yet.</td></tr>`;
+    return;
+  }
+
+  els.myTable.innerHTML = rows.map(r => {
+    const loc = [r.city, normalizeState(r.state)].filter(Boolean).join(", ");
+    const status = r.approved
+      ? `<span class="badge bg-success">Approved</span>`
+      : `<span class="badge bg-warning text-dark">Pending</span>`;
+    const actions = r.approved
+      ? `<button class="btn btn-sm btn-outline-primary" type="button" data-action="suggest" data-id="${safe(r.id)}">Suggest Edit</button>`
+      : `
+        <button class="btn btn-sm btn-primary" data-action="edit" data-id="${safe(r.id)}">Edit</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-action="suggest" data-id="${safe(r.id)}">Suggest Edit</button>
+      `;
+    return `
+      <tr>
+        <td>
+          <div class="fw-semibold">${safe(r.name)}</div>
+          <div class="text-muted small">${safe(r.venue_name || "")}</div>
+        </td>
+        <td class="small text-muted">${safe(loc || "")}</td>
+        <td>${status}</td>
+        <td class="text-end">${actions}</td>
+      </tr>
+    `;
+  }).join("");
+
+  // delegate edit click
+  els.myTable.querySelectorAll('[data-action="edit"]').forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-id");
+      await openEditModal(id);
+    });
+  });
+
+  // delegate suggest click
+  els.myTable.querySelectorAll('[data-action="suggest"]').forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-id");
+      await openSuggestModal(id);
+    });
+  });
+}
+
 
   /* ---------------------------- Explore (list+map) ---------------------------- */
   async function loadExplore(byBounds=false){
@@ -188,6 +293,7 @@ async function start(){
               <div class="text-muted small">${safe(sub)}${e.venue_name?` • ${safe(e.venue_name)}`:""}</div>
             </div>
             ${e.website ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" href="${safe(e.website)}">Website</a>` : ""}
+            <button class="btn btn-sm btn-outline-primary" type="button" data-action="suggest" data-id="${safe(e.id)}">Suggest Edit</button>
           </div>
           <div class="x-expando" id="expando-${e.id}">
             <div class="small mt-2">${safe(e.description || "")}</div>
@@ -239,6 +345,16 @@ async function start(){
         if (m && map) { m.openPopup(); map.panTo(m.getLatLng()); }
       });
     });
+
+    // Suggest Edit buttons inside Explore list
+    els.list.querySelectorAll('[data-action="suggest"]').forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const id = btn.getAttribute("data-id");
+        await openSuggestModal(id);
+      });
+    });
+
   }
 
   async function fillUpcoming(expoId){
@@ -374,7 +490,248 @@ async function start(){
     } catch(e){ console.warn(e); }
   }
 
-  /* ------------------------------ Utilities ------------------------------- */
+
+/* ------------------------------ Edit modal ------------------------------ */
+async function openEditModal(expoId){
+  const user = await getCurrentUser();
+  if (!user?.id) return alert("Please log in to edit your submission.");
+
+  // fetch expo
+  const { data: expo, error: eErr } = await supabase
+    .from("expos")
+    .select("id, name, website, description, venue_name, address, lat, lng, approved, submitted_by")
+    .eq("id", expoId)
+    .single();
+
+  if (eErr || !expo){
+    console.error("❌ fetch expo failed:", eErr);
+    return alert("Could not load that expo.");
+  }
+  if (expo.approved) return alert("This expo has already been approved and can no longer be edited.");
+  if (expo.submitted_by !== user.id) return alert("You can only edit expos you submitted.");
+
+  const modalEl = document.getElementById("expoModal");
+  if (!modalEl) return alert("Edit modal not found.");
+
+  // Switch modal to edit mode
+  modalEl._mode = "edit";
+  
+  setLocationLocked(true);
+modalEl._editingExpoId = expoId;
+
+  // Fill base fields
+  document.getElementById("x-name").value = expo.name || "";
+  document.getElementById("x-website").value = expo.website || "";
+  document.getElementById("x-description").value = expo.description || "";
+  document.getElementById("x-venue").value = expo.venue_name || "";
+  document.getElementById("x-address").value = expo.address || "";
+  document.getElementById("x-lat").value = (expo.lat ?? "") === null ? "" : String(expo.lat);
+  document.getElementById("x-lng").value = (expo.lng ?? "") === null ? "" : String(expo.lng);
+
+  // Clear hero input
+  const hero = document.getElementById("x-hero"); if (hero) hero.value = "";
+
+  // Load schedules/dates
+  modalEl._state = { dates: [] };
+
+  const { data: dates } = await supabase
+    .from("expo_calendar_dates")
+    .select("event_date, start_time, end_time, timezone")
+    .eq("expo_id", expoId)
+    .order("event_date");
+
+  if (dates && dates.length){
+    // Specific dates mode
+    document.getElementById("x-specific").checked = true;
+    document.getElementById("x-recurring").checked = false;
+    toggleBlocks();
+    modalEl._state.dates = dates.map(d => ({
+      d: d.event_date,
+      start: (d.start_time || "10:00").slice(0,5),
+      end: (d.end_time || "16:00").slice(0,5),
+      tz: d.timezone || "America/New_York"
+    }));
+    renderDatesList(modalEl);
+  } else {
+    // Recurring mode
+    document.getElementById("x-recurring").checked = true;
+    document.getElementById("x-specific").checked = false;
+    toggleBlocks();
+
+    const { data: sched } = await supabase
+      .from("expo_schedules")
+      .select("ordinal, day_of_week, start_time, end_time, timezone, valid_from, valid_to")
+      .eq("expo_id", expoId)
+      .eq("active", true);
+
+    // reset checkboxes
+    document.getElementById("x-day-sat").checked = false;
+    document.getElementById("x-day-sun").checked = false;
+
+    if (sched && sched.length){
+      const first = sched[0];
+      document.getElementById("x-ordinal").value = String(first.ordinal || 2);
+      document.getElementById("x-start").value = (first.start_time || "10:00").slice(0,5);
+      document.getElementById("x-end").value = (first.end_time || "16:00").slice(0,5);
+      document.getElementById("x-tz").value = first.timezone || "America/New_York";
+      document.getElementById("x-valid-from").value = first.valid_from || "";
+      document.getElementById("x-valid-to").value = first.valid_to || "";
+
+      sched.forEach(s => {
+        if (parseInt(s.day_of_week,10) === 6) document.getElementById("x-day-sat").checked = true;
+        if (parseInt(s.day_of_week,10) === 0) document.getElementById("x-day-sun").checked = true;
+      });
+    }
+  }
+
+  // Update modal title/button
+  const title = modalEl.querySelector(".modal-title");
+  if (title) title.textContent = "Edit Your Expo (Pending Approval)";
+  const submitBtn = document.getElementById("x-submit");
+  if (submitBtn) submitBtn.textContent = "Save Changes";
+
+  setMStatus("");
+  if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  else { modalEl.classList.add("show"); modalEl.style.display = "block"; modalEl.removeAttribute("aria-hidden"); }
+}
+
+
+  
+
+/* --------------------- Modal field locking helpers --------------------- */
+function setLocationLocked(locked){
+  const ids = ["x-venue","x-address","x-city","x-state","x-lat","x-lng"];
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (locked){
+      el.setAttribute("data-was-disabled", el.disabled ? "1":"0");
+      el.disabled = true;
+      el.setAttribute("readonly","readonly");
+      el.classList.add("bg-light");
+      el.title = "Location edits are locked. Contact an admin to correct location.";
+    } else {
+      const was = el.getAttribute("data-was-disabled");
+      el.disabled = (was === "1");
+      el.removeAttribute("readonly");
+      el.classList.remove("bg-light");
+      el.title = "";
+      el.removeAttribute("data-was-disabled");
+    }
+  });
+  const v = document.getElementById("x-verify");
+  if (v){
+    if (locked){ v.setAttribute("data-was-disabled", v.disabled ? "1":"0"); v.disabled = true; v.classList.add("disabled"); }
+    else { const was = v.getAttribute("data-was-disabled"); v.disabled = (was === "1"); v.classList.remove("disabled"); v.removeAttribute("data-was-disabled"); }
+  }
+}
+window.pickExpoAllowed = function pickExpoAllowed(obj){
+  // Excludes location/geo + admin fields by design
+  return {
+    name: obj?.name ?? null,
+    description: obj?.description ?? null,
+    website: obj?.website ?? null,
+    start_date: obj?.start_date ?? null,
+    end_date: obj?.end_date ?? null,
+    hero_image: obj?.hero_image ?? null
+  };
+};
+
+/* --------------------------- Suggest edit modal ------------------------- */
+async function openSuggestModal(expoId){
+  const supabase = window.supabase;
+  const modalEl = document.getElementById("expoModal");
+  if (!supabase || !modalEl) return;
+
+  clearExpoForm();
+  modalEl._mode = "suggest";
+  
+  setLocationLocked(true);
+modalEl._editingExpoId = null;
+  modalEl._suggestFromExpoId = expoId;
+  modalEl._state = { dates: [] };
+
+  // Load expo core info
+  const { data: expo, error } = await supabase
+    .from("expos")
+    .select("id, name, website, description, venue_name, address, city, state, lat, lng")
+    .eq("id", expoId)
+    .single();
+
+  if (error || !expo){
+    console.error("❌ suggest prefill load failed:", error);
+    setMStatus("Could not load that expo to prefill.", "error");
+    return;
+  }
+
+  document.getElementById("x-name").value = expo.name || "";
+  document.getElementById("x-website").value = expo.website || "";
+  document.getElementById("x-description").value = expo.description || "";
+  document.getElementById("x-venue").value = expo.venue_name || "";
+  document.getElementById("x-address").value = expo.address || "";
+  document.getElementById("x-lat").value = expo.lat ?? "";
+  document.getElementById("x-lng").value = expo.lng ?? "";
+
+  // Try to prefill schedule/dates
+  const { data: dates } = await supabase
+    .from("expo_calendar_dates")
+    .select("event_date, start_time, end_time, timezone")
+    .eq("expo_id", expoId)
+    .order("event_date");
+
+  if (dates && dates.length){
+    document.getElementById("x-specific").checked = true;
+    document.getElementById("x-recurring").checked = false;
+    toggleBlocks();
+    modalEl._state.dates = dates.map(d => ({
+      d: d.event_date,
+      start: (d.start_time || "10:00").slice(0,5),
+      end: (d.end_time || "16:00").slice(0,5),
+      tz: d.timezone || "America/New_York"
+    }));
+    renderDatesList(modalEl);
+  } else {
+    document.getElementById("x-recurring").checked = true;
+    document.getElementById("x-specific").checked = false;
+    toggleBlocks();
+
+    const { data: sched } = await supabase
+      .from("expo_schedules")
+      .select("ordinal, day_of_week, start_time, end_time, timezone, valid_from, valid_to")
+      .eq("expo_id", expoId)
+      .eq("active", true);
+
+    // reset checkboxes
+    document.getElementById("x-day-sat").checked = false;
+    document.getElementById("x-day-sun").checked = false;
+
+    if (sched && sched.length){
+      const first = sched[0];
+      document.getElementById("x-ordinal").value = String(first.ordinal || 2);
+      document.getElementById("x-start").value = (first.start_time || "10:00").slice(0,5);
+      document.getElementById("x-end").value = (first.end_time || "16:00").slice(0,5);
+      document.getElementById("x-tz").value = first.timezone || "America/New_York";
+      document.getElementById("x-valid-from").value = first.valid_from || "";
+      document.getElementById("x-valid-to").value = first.valid_to || "";
+
+      sched.forEach(s => {
+        if (parseInt(s.day_of_week,10) === 6) document.getElementById("x-day-sat").checked = true;
+        if (parseInt(s.day_of_week,10) === 0) document.getElementById("x-day-sun").checked = true;
+      });
+    }
+  }
+
+  const title = modalEl.querySelector(".modal-title");
+  if (title) title.textContent = "Suggest an Edit";
+  const submitBtn = document.getElementById("x-submit");
+  if (submitBtn) submitBtn.textContent = "Submit Suggested Edit";
+
+  setMStatus("Make your changes and submit — this will go to review before appearing publicly.", "");
+  if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  else { modalEl.classList.add("show"); modalEl.style.display = "block"; modalEl.removeAttribute("aria-hidden"); }
+}
+
+/* ------------------------------ Utilities ------------------------------- */
   function safe(s){
     return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -433,19 +790,34 @@ function onOpenModal(){
   clearExpoForm();
   const modalEl = document.getElementById("expoModal");
   if (!modalEl) { console.warn("⚠️ expoModal not found"); return; }
+
+  // create mode defaults
+  modalEl._mode = "create";
+  
+  setLocationLocked(false);
+modalEl._editingExpoId = null;
+  modalEl._suggestFromExpoId = null;
+
+  const t = modalEl.querySelector(".modal-title"); if (t) t.textContent = "Register an Expo";
+  const sb = document.getElementById("x-submit"); if (sb) sb.textContent = "Submit Expo";
+
   modalEl._state = { dates: [] };
   const dl = document.getElementById("x-dates-list"); if (dl) dl.innerHTML = "";
   const hero = document.getElementById("x-hero"); if (hero) hero.value = "";
 
+  // default to recurring
   const r = document.getElementById("x-recurring");
   const s = document.getElementById("x-specific");
   const rb = document.getElementById("x-recurring-block");
-  const sb = document.getElementById("x-specific-block");
-  if (r && s && rb && sb) { r.checked = true; s.checked = false; rb.classList.remove("d-none"); sb.classList.add("d-none"); }
+  const spb = document.getElementById("x-specific-block");
+  if (r && s && rb && spb) { r.checked = true; s.checked = false; rb.classList.remove("d-none"); spb.classList.add("d-none"); }
 
+  setMStatus("");
   if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalEl).show();
   else { modalEl.classList.add("show"); modalEl.style.display = "block"; modalEl.removeAttribute("aria-hidden"); }
 }
+
+document.getElementById("x-recurring")
 
 document.getElementById("x-recurring")?.addEventListener("change", toggleBlocks);
 document.getElementById("x-specific")?.addEventListener("change", toggleBlocks);
@@ -491,46 +863,228 @@ async function onVerifyAddress(){
 document.getElementById("x-submit")?.addEventListener("click", onSubmit);
 async function onSubmit(){
   const supabase = window.supabase;
+  const modalEl = document.getElementById("expoModal");
+  const mode = modalEl ? (modalEl._mode || "create") : "create";
+  const editingExpoId = modalEl ? (modalEl._editingExpoId || null) : null;
+  const suggestFrom = modalEl ? (modalEl._suggestFromExpoId || null) : null;
+
+  const { data: authData } = await supabase.auth.getUser();
+  const user = authData?.user || null;
+  if (!user?.id) return setMStatus("You must be logged in to submit expos.", "error");
+
   const name = (document.getElementById("x-name")?.value || "").trim();
   if (!name) return setMStatus("Expo name is required", "error");
 
+  // Location fields are locked for suggest/edit modes (policy: location is admin-only)
   const latEl = document.getElementById("x-lat");
   const lngEl = document.getElementById("x-lng");
-  if ((!latEl.value || !lngEl.value) && document.getElementById("x-address")?.value) {
-    setMStatus("Finding location from address…");
-    const geo = await geocodeAddress(document.getElementById("x-address").value);
-    if (!geo) return setMStatus("Could not resolve that address.", "error");
-    latEl.value = geo.lat.toFixed(6);
-    lngEl.value = geo.lng.toFixed(6);
+
+  // CREATE mode: allow geocode + reverse-geocode for nice city/state autofill
+  let city = null, state = null;
+  if (mode === "create") {
+    if ((!latEl?.value || !lngEl?.value) && (document.getElementById("x-address")?.value || "").trim()) {
+      setMStatus("Finding location from address…");
+      const geo = await geocodeAddress(document.getElementById("x-address").value);
+      if (!geo) return setMStatus("Could not resolve that address.", "error");
+      latEl.value = geo.lat.toFixed(6);
+      lngEl.value = geo.lng.toFixed(6);
+    }
+
+    setMStatus("Submitting…");
+    const rc = await reverseOrNull(latEl?.value, lngEl?.value);
+    city = rc?.city || null;
+    state = rc?.state || null;
+  } else {
+    setMStatus(mode === "suggest" ? "Submitting suggestion…" : "Saving…");
   }
 
-  setMStatus("Submitting…");
-  const rc = await reverseOrNull(latEl.value, lngEl.value);
-  const city = rc?.city || null;
-  const state = rc?.state || null;
-
-  const expoPayload = {
+  // Build base payload from form (location excluded from allowed set)
+  const rawDesc = document.getElementById("x-description")?.value ?? null;
+  const expoDraft = {
     name,
     website: (document.getElementById("x-website")?.value || null),
-    description: (document.getElementById("x-description")?.value || null),
-    venue_name: (document.getElementById("x-venue")?.value || null),
-    address: (document.getElementById("x-address")?.value || null),
-    city, state,
-    lat: latEl.value ? parseFloat(latEl.value) : null,
-    lng: lngEl.value ? parseFloat(lngEl.value) : null,
-    approved: false
+    description: rawDesc,
+    start_date: (document.getElementById("x-start-date")?.value || null),
+    end_date: (document.getElementById("x-end-date")?.value || null),
+    hero_image: null
   };
 
-  const { data: ins, error: insErr } = await supabase.from("expos").insert(expoPayload).select("id").single();
-  if (insErr || !ins?.id) { console.error("❌ expo insert failed:", insErr); return setMStatus("Create failed", "error"); }
-  const expoId = ins.id;
+  // Hero upload (for create/edit: update expos; for suggest: store URL in suggestion)
+  const heroInput = document.getElementById("x-hero");
+  const heroFile = heroInput?.files?.[0] || null;
 
-  const hero = document.getElementById("x-hero");
-  const file = hero?.files?.[0];
-  if (file) {
-    const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
+  // Determine schedule payload from UI
+  const isSpecific = document.getElementById("x-specific")?.checked === true;
+  const tz = document.getElementById("x-tz")?.value || "America/New_York";
+
+  function collectSchedule(){
+    if (isSpecific){
+      const rows = (modalEl?._state?.dates || []).map(x => ({
+        event_date: x.d,
+        start_time: x.start || "10:00",
+        end_time: x.end || "16:00",
+        timezone: x.tz || tz
+      }));
+      return { kind: "specific", rows };
+    } else {
+      const days = [
+        document.getElementById("x-day-sat")?.checked ? 6 : null,
+        document.getElementById("x-day-sun")?.checked ? 0 : null
+      ].filter(v => v !== null);
+      const ordinal = parseInt(document.getElementById("x-ordinal")?.value || "2", 10);
+      const startT = document.getElementById("x-start")?.value || "10:00";
+      const endT = document.getElementById("x-end")?.value || "16:00";
+      const validFrom = document.getElementById("x-valid-from")?.value || null;
+      const validTo = document.getElementById("x-valid-to")?.value || null;
+      const rows = days.map(d => ({
+        ordinal,
+        day_of_week: d,
+        start_time: startT,
+        end_time: endT,
+        timezone: tz,
+        active: true,
+        valid_from: validFrom,
+        valid_to: validTo
+      }));
+      return { kind: "recurring", rows };
+    }
+  }
+
+  const schedDraft = collectSchedule();
+  if (schedDraft.kind === "specific" && !schedDraft.rows.length) return setMStatus("Add at least one date.", "error");
+  if (schedDraft.kind === "recurring" && !schedDraft.rows.length) return setMStatus("Pick Saturday and/or Sunday", "error");
+
+  /* ----------------------- SUGGEST MODE (NEW TABLE) ----------------------- */
+  if (mode === "suggest") {
+    if (!suggestFrom) return setMStatus("Missing expo id for suggestion.", "error");
+
+    // Load current canonical expo + schedules/dates to snapshot (exclude location fields)
+    const { data: curExpo, error: curErr } = await supabase
+      .from("expos")
+      .select("id,name,description,website,start_date,end_date,hero_image")
+      .eq("id", suggestFrom)
+      .single();
+    if (curErr || !curExpo) { console.error(curErr); return setMStatus("Could not load expo for suggestion.", "error"); }
+
+    const { data: curDates } = await supabase
+      .from("expo_calendar_dates")
+      .select("event_date,start_time,end_time,timezone,note")
+      .eq("expo_id", suggestFrom);
+
+    const { data: curSched } = await supabase
+      .from("expo_schedules")
+      .select("ordinal,day_of_week,start_time,end_time,timezone,active,valid_from,valid_to,effective_from,effective_to")
+      .eq("expo_id", suggestFrom);
+
+    // If a new hero image is selected, upload it now and set after_snapshot hero_image URL
+    let suggestedHeroUrl = null;
+    if (heroFile){
+      try{
+        const ext = heroFile.name.includes(".") ? heroFile.name.split(".").pop() : "jpg";
+        const uid = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random().toString(16).slice(2));
+        const path = `expo_suggestions/${suggestFrom}/${uid}.${ext}`;
+        const up = await supabase.storage.from("expo-images").upload(path, heroFile, { upsert: true, contentType: heroFile.type || "image/jpeg" });
+        if (up?.error) { console.warn("Hero upload failed:", up.error); }
+        else {
+          const { data: pub } = await supabase.storage.from("expo-images").getPublicUrl(path);
+          suggestedHeroUrl = pub?.publicUrl || null;
+        }
+      }catch(e){ console.warn("Hero upload error:", e); }
+    }
+
+    const before_snapshot = {
+      expo: window.pickExpoAllowed(curExpo),
+      schedule: {
+        calendar_dates: curDates || [],
+        schedules: curSched || []
+      }
+    };
+
+    const afterExpo = window.pickExpoAllowed({
+      ...expoDraft,
+      hero_image: suggestedHeroUrl || curExpo.hero_image || null
+    });
+
+    const after_snapshot = {
+      expo: afterExpo,
+      schedule: (schedDraft.kind === "specific")
+        ? { calendar_dates: schedDraft.rows, schedules: [] }
+        : { calendar_dates: [], schedules: schedDraft.rows }
+    };
+
+    // Optional note field if you add it to the UI later
+    const note = (document.getElementById("x-suggest-note")?.value || "").trim() || null;
+
+    const { error: insErr } = await supabase.from("expo_edit_suggestions").insert({
+      expo_id: suggestFrom,
+      submitted_by: user.id,
+      status: "pending",
+      before_snapshot,
+      after_snapshot,
+      note
+    });
+    if (insErr) { console.error("❌ suggestion insert failed:", insErr); return setMStatus("Suggestion submit failed.", "error"); }
+
+    setMStatus("Suggestion submitted! Pending review.", "success");
+    try { window.dispatchEvent(new CustomEvent("expo:saved")); } catch(e){}
+    setTimeout(() => { try { bootstrap.Modal.getOrCreateInstance(modalEl).hide(); } catch(e){} }, 250);
+    return;
+  }
+
+  /* -------------------------- EDIT / CREATE EXPO -------------------------- */
+
+  // Build expo payload including location only for create
+  const expoPayload = {
+    name: expoDraft.name,
+    website: expoDraft.website,
+    description: expoDraft.description,
+    start_date: expoDraft.start_date,
+    end_date: expoDraft.end_date,
+    approved: false,
+    submitted_by: user.id
+  };
+
+  if (mode === "create") {
+    expoPayload.venue_name = (document.getElementById("x-venue")?.value || null);
+    expoPayload.address = (document.getElementById("x-address")?.value || null);
+    expoPayload.city = city;
+    expoPayload.state = state;
+    expoPayload.lat = latEl?.value ? parseFloat(latEl.value) : null;
+    expoPayload.lng = lngEl?.value ? parseFloat(lngEl.value) : null;
+  }
+
+  let expoId = editingExpoId;
+
+  if (mode === "edit") {
+    if (!expoId) return setMStatus("Missing expo id for edit.", "error");
+
+    const { data: cur, error: curErr } = await supabase
+      .from("expos")
+      .select("id, approved, submitted_by")
+      .eq("id", expoId)
+      .single();
+
+    if (curErr || !cur) return setMStatus("Could not load expo for editing.", "error");
+    if (cur.approved) return setMStatus("This expo is already approved and cannot be edited.", "error");
+    if (cur.submitted_by !== user.id) return setMStatus("You can only edit expos you submitted.", "error");
+
+    // Do not overwrite submitted_by, and never touch location fields (policy)
+    const { submitted_by, venue_name, address, city, state, lat, lng, ...updatePayload } = expoPayload;
+
+    const { error: upErr } = await supabase.from("expos").update(updatePayload).eq("id", expoId);
+    if (upErr) { console.error("❌ expo update failed:", upErr); return setMStatus("Update failed", "error"); }
+
+  } else {
+    const { data: ins, error: insErr } = await supabase.from("expos").insert(expoPayload).select("id").single();
+    if (insErr || !ins?.id) { console.error("❌ expo insert failed:", insErr); return setMStatus("Create failed", "error"); }
+    expoId = ins.id;
+  }
+
+  // Hero upload for create/edit updates canonical expo hero_image
+  if (heroFile) {
+    const ext = heroFile.name.includes(".") ? heroFile.name.split(".").pop() : "jpg";
     const path = `expos/${expoId}/hero.${ext}`;
-    const { error: upErr } = await supabase.storage.from("expo-images").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+    const { error: upErr } = await supabase.storage.from("expo-images").upload(path, heroFile, { upsert: true, contentType: heroFile.type || "image/jpeg" });
     if (!upErr) {
       const { data: pub } = await supabase.storage.from("expo-images").getPublicUrl(path);
       const url = pub?.publicUrl || null;
@@ -538,45 +1092,27 @@ async function onSubmit(){
     }
   }
 
-  const isSpecific = document.getElementById("x-specific")?.checked === true;
-  if (isSpecific) {
-    const modalEl = document.getElementById("expoModal");
-    const rows = (modalEl._state?.dates || []).map(x => ({
-      expo_id: expoId,
-      event_date: x.d,
-      start_time: x.start || "10:00",
-      end_time: x.end || "16:00",
-      timezone: x.tz || "America/New_York"
-    }));
-    if (!rows.length) return setMStatus("Add at least one date.", "error");
+  // Replace existing schedule on edit
+  if (mode === "edit") {
+    await supabase.from("expo_calendar_dates").delete().eq("expo_id", expoId);
+    await supabase.from("expo_schedules").delete().eq("expo_id", expoId);
+  }
+
+  if (schedDraft.kind === "specific") {
+    const rows = schedDraft.rows.map(r => ({ ...r, expo_id: expoId }));
     const { error: dErr } = await supabase.from("expo_calendar_dates").insert(rows);
     if (dErr) { console.warn("⚠️ date insert failed:", dErr); }
   } else {
-    const days = [
-      document.getElementById("x-day-sat")?.checked ? 6 : null,
-      document.getElementById("x-day-sun")?.checked ? 0 : null
-    ].filter(v => v !== null);
-    if (!days.length) return setMStatus("Pick Saturday and/or Sunday", "error");
-    const ordinal = parseInt(document.getElementById("x-ordinal")?.value || "2", 10);
-    const startT = document.getElementById("x-start")?.value || "10:00";
-    const endT = document.getElementById("x-end")?.value || "16:00";
-    const tz = document.getElementById("x-tz")?.value || "America/New_York";
-    const validFrom = document.getElementById("x-valid-from")?.value || null;
-    const validTo = document.getElementById("x-valid-to")?.value || null;
-    const rows = days.map(d => ({
-      expo_id: expoId, ordinal, day_of_week: d, start_time: startT, end_time: endT, timezone: tz, active: true,
-      valid_from: validFrom, valid_to: validTo
-    }));
-    const { error: schedErr } = await supabase.from("expo_schedules").insert(rows);
-    if (schedErr) console.warn("⚠️ schedule insert failed:", schedErr);
+    const rows = schedDraft.rows.map(r => ({ ...r, expo_id: expoId }));
+    const { error: sErr } = await supabase.from("expo_schedules").insert(rows);
+    if (sErr) { console.warn("⚠️ schedule insert failed:", sErr); }
   }
 
-  setMStatus("Submitted! Pending approval.", "success");
-  setTimeout(() => {
-    if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(document.getElementById("expoModal")).hide();
-    else { const m = document.getElementById("expoModal"); m.classList.remove("show"); m.style.display="none"; m.setAttribute("aria-hidden","true"); }
-  }, 700);
+  setMStatus(mode === "edit" ? "Saved! Still pending approval." : "Submitted! Pending approval.", "success");
+  try { window.dispatchEvent(new CustomEvent("expo:saved")); } catch(e){}
+  setTimeout(() => { try { bootstrap.Modal.getOrCreateInstance(modalEl).hide(); } catch(e){} }, 250);
 }
+
 
 /* --------------------------- Specific Dates UI --------------------------- */
 function renderDatesList(modalEl){
