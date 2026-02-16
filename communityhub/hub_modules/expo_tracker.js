@@ -599,32 +599,6 @@ modalEl._editingExpoId = expoId;
   
 
 /* --------------------- Modal field locking helpers --------------------- */
-function setLocationLocked(locked){
-  const ids = ["x-venue","x-address","x-city","x-state","x-lat","x-lng"];
-  ids.forEach(id=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (locked){
-      el.setAttribute("data-was-disabled", el.disabled ? "1":"0");
-      el.disabled = true;
-      el.setAttribute("readonly","readonly");
-      el.classList.add("bg-light");
-      el.title = "Location edits are locked. Contact an admin to correct location.";
-    } else {
-      const was = el.getAttribute("data-was-disabled");
-      el.disabled = (was === "1");
-      el.removeAttribute("readonly");
-      el.classList.remove("bg-light");
-      el.title = "";
-      el.removeAttribute("data-was-disabled");
-    }
-  });
-  const v = document.getElementById("x-verify");
-  if (v){
-    if (locked){ v.setAttribute("data-was-disabled", v.disabled ? "1":"0"); v.disabled = true; v.classList.add("disabled"); }
-    else { const was = v.getAttribute("data-was-disabled"); v.disabled = (was === "1"); v.classList.remove("disabled"); v.removeAttribute("data-was-disabled"); }
-  }
-}
 window.pickExpoAllowed = function pickExpoAllowed(obj){
   // Excludes location/geo + admin fields by design
   return {
@@ -785,6 +759,34 @@ modalEl._editingExpoId = null;
   }
 }
 
+/* --------------------- Modal field locking helpers (GLOBAL) --------------------- */
+function setLocationLocked(locked){
+  const ids = ["x-venue","x-address","x-city","x-state","x-lat","x-lng"];
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (locked){
+      el.setAttribute("data-was-disabled", el.disabled ? "1":"0");
+      el.disabled = true;
+      el.setAttribute("readonly","readonly");
+      el.classList.add("bg-light");
+      el.title = "Location edits are locked. Contact an admin to correct location.";
+    } else {
+      const was = el.getAttribute("data-was-disabled");
+      el.disabled = (was === "1");
+      el.removeAttribute("readonly");
+      el.classList.remove("bg-light");
+      el.title = "";
+      el.removeAttribute("data-was-disabled");
+    }
+  });
+  const v = document.getElementById("x-verify");
+  if (v){
+    if (locked){ v.setAttribute("data-was-disabled", v.disabled ? "1":"0"); v.disabled = true; v.classList.add("disabled"); }
+    else { const was = v.getAttribute("data-was-disabled"); v.disabled = (was === "1"); v.classList.remove("disabled"); v.removeAttribute("data-was-disabled"); }
+  }
+}
+
 /* ------------------------------ Register flow --------------------------- */
 function onOpenModal(){
   clearExpoForm();
@@ -798,8 +800,8 @@ function onOpenModal(){
 modalEl._editingExpoId = null;
   modalEl._suggestFromExpoId = null;
 
-  const t = modalEl.querySelector(".modal-title"); if (t) t.textContent = "Register an Expo";
-  const sb = document.getElementById("x-submit"); if (sb) sb.textContent = "Submit Expo";
+  const t = modalEl.querySelector(".modal-title"); if (t) t.textContent = "Register an Event";
+  const sb = document.getElementById("x-submit"); if (sb) sb.textContent = "Submit Event";
 
   modalEl._state = { dates: [] };
   const dl = document.getElementById("x-dates-list"); if (dl) dl.innerHTML = "";
@@ -873,7 +875,7 @@ async function onSubmit(){
   if (!user?.id) return setMStatus("You must be logged in to submit expos.", "error");
 
   const name = (document.getElementById("x-name")?.value || "").trim();
-  if (!name) return setMStatus("Expo name is required", "error");
+  if (!name) return setMStatus("Event name is required", "error");
 
   // Location fields are locked for suggest/edit modes (policy: location is admin-only)
   const latEl = document.getElementById("x-lat");
