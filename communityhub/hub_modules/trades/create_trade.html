@@ -4,11 +4,11 @@
   <form id="trade-form">
     <div class="mb-3">
       <label class="form-label">Title</label>
-      <input type="text" class="form-control" id="title" required>
+      <input type="text" class="form-control" id="title" >
     </div>
     <div class="mb-3">
       <label class="form-label">Trade Type</label>
-      <select class="form-select" id="trade_type" required>
+      <select class="form-select" id="trade_type">
         <option value="have">I Have</option>
         <option value="want">I Want</option>
       </select>
@@ -35,21 +35,207 @@
     </div>
     <div class="mb-3">
       <label class="form-label">Shipping Option</label>
-      <select class="form-select" id="shipping_option" required>
+      <select class="form-select" id="shipping_option">
         <option value="local">Local Only</option>
         <option value="ship">Shipping Only</option>
         <option value="both">Both</option>
       </select>
     </div>
-    <div class="mb-3">
+    
+  <!-- Trade Expos (store-expos style) -->
+  <div id="trade-expos-card" class="card shadow-sm mt-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="fw-semibold">Expos for this trade</div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-primary" id="te-register" type="button">Register a new expo</button>
+        <div class="text-muted small" id="te-status"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label small mb-1">Find an expo</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="te-search" placeholder="Type at least 2 characters…">
+            <button class="btn btn-outline-secondary" type="button" id="te-clear" type="button">Clear</button>
+          </div>
+          <div class="list-group mt-2" id="te-results"></div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1">Selected for this trade</label>
+          <div class="list-group" id="te-selected">
+            <div class="list-group-item text-muted small">Nothing yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Specific dates block -->
+            <div class="col-12 d-none" id="te-m-specific-block">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">Pick a date</label>
+                  <div class="input-group">
+                    <input type="date" id="te-m-date" name="expo_date" class="form-control">
+                    <button class="btn btn-outline-secondary" type="button" id="te-m-add-date">Add</button>
+                  </div>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Opens</label>
+                  <input type="time" id="te-m-sd-start" name="expo_sd_start" class="form-control" value="10:00">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Closes</label>
+                  <input type="time" id="te-m-sd-end" name="expo_sd_end" class="form-control" value="16:00">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Timezone</label>
+                  <select id="te-m-sd-tz" name="expo_sd_timezone" class="form-select">
+                    <option value="America/New_York" selected>America/New_York</option>
+                    <option value="America/Chicago">America/Chicago</option>
+                    <option value="America/Denver">America/Denver</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <div id="te-m-dates-list" class="list-group"></div>
+                  <div class="form-text">Times apply to all selected dates above.</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
+          <button id="te-m-submit" class="btn btn-primary" type="button">Submit Expo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<div class="mb-3">
       <label class="form-label">Description</label>
       <textarea class="form-control" id="description" rows="4"></textarea>
     </div>
     <div class="form-check mb-3">
-      <input class="form-check-input" type="checkbox" id="tos_agreement" required>
-      <label class="form-check-label">I agree to the Terms of Service</label>
-    </div>
+  <input class="form-check-input" type="checkbox" id="tos_agreement">
+  <label class="form-check-label" for="tos_agreement">I agree to the Terms of Service</label>
+</div>
     <button type="submit" class="btn btn-primary">Post Trade</button>
     <div id="form-message" class="text-danger mt-2 small"></div>
   </form>
+
+<!-- Register Expo Modal (copied from store_expos, adapted ids with te- prefix) -->
+  <div class="modal fade" id="teModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Register a New Expo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" type="button"></button>
+        </div>
+        <div class="modal-body">
+          <div id="te-m-status" class="text-muted small mb-2"></div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Expo Name</label>
+              <input type="text" id="te-m-name" name="expo_name" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Website (optional)</label>
+              <input type="url" id="te-m-website" name="expo_website" class="form-control" placeholder="https://…">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description (optional)</label>
+              <textarea id="te-m-description" name="expo_description" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Venue Name</label>
+              <input type="text" id="te-m-venue" name="expo_venue" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Address</label>
+              <div class="input-group">
+                <input type="text" id="te-m-address" name="expo_address" class="form-control" placeholder="Street, City, State ZIP">
+                <button class="btn btn-outline-secondary" type="button" id="te-m-verify">Verify</button>
+              </div>
+              <div class="form-text">We’ll validate and save lat/lng automatically.</div>
+            </div>
+
+            <input type="hidden" id="te-m-lat" name="expo_lat">
+            <input type="hidden" id="te-m-lng" name="expo_lng">
+
+            <div class="col-md-8">
+              <label class="form-label">Hero Image (optional)</label>
+              <input type="file" id="te-m-hero" name="expo_hero" class="form-control" accept="image/*">
+            </div>
+
+            <div class="col-12"><hr/></div>
+
+            <div class="col-12">
+              <label class="form-label d-block">Schedule Type</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="te-m-schedtype" id="te-m-recurring" value="recurring" checked>
+                <label class="form-check-label" for="te-m-recurring">Recurring (monthly)</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="te-m-schedtype" id="te-m-specific" value="specific">
+                <label class="form-check-label" for="te-m-specific">Specific dates</label>
+              </div>
+            </div>
+
+            <!-- Recurring block -->
+            <div class="col-12" id="te-m-recurring-block">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">Week</label>
+                  <select id="te-m-ordinal" name="expo_ordinal" class="form-select">
+                    <option value="1">First</option>
+                    <option value="2" selected>Second</option>
+                    <option value="3">Third</option>
+                    <option value="4">Fourth</option>
+                    <option value="5">Fifth</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label d-block">Days</label>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="te-m-day-sat" name="expo_day_sat" value="6">
+                    <label class="form-check-label" for="te-m-day-sat">Saturday</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="te-m-day-sun" name="expo_day_sun" value="0">
+                    <label class="form-check-label" for="te-m-day-sun">Sunday</label>
+                  </div>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Opens</label>
+                  <input type="time" id="te-m-start" name="expo_start" class="form-control" value="10:00">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Closes</label>
+                  <input type="time" id="te-m-end" name="expo_end" class="form-control" value="16:00">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Timezone</label>
+                  <select id="te-m-tz" name="expo_timezone" class="form-select">
+                    <option value="America/New_York" selected>America/New_York</option>
+                    <option value="America/Chicago">America/Chicago</option>
+                    <option value="America/Denver">America/Denver</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Valid From</label>
+                  <input type="date" id="te-m-valid-from" name="expo_valid_from" class="form-control">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Valid To</label>
+                  <input type="date" id="te-m-valid-to" name="expo_valid_to" class="form-control">
+                </div>
+              </div>
+            </div>
+
+            
 </div>

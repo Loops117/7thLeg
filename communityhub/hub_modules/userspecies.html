@@ -6,18 +6,22 @@
     <div class="d-flex align-items-center gap-2">
       <button class="btn btn-success btn-sm" id="add-species-top">Add</button>
       <div class="position-relative" id="share-menu-wrap">
-        <button class="btn btn-sm btn-outline-primary" id="share-list-btn" title="Copy a public link to your list">Share</button>
-        <div class="dropdown-menu shadow" id="share-menu" style="display:none; position:absolute; right:0; top:110%; z-index:1000; min-width: 220px;">
-          <button class="dropdown-item" id="copy-inventory-link" type="button">Copy Inventory Link</button>
-          <button class="dropdown-item" id="copy-wishlist-link" type="button">Copy Wishlist Link</button>
-        </div>
+        <button class="btn btn-sm btn-outline-primary" id="share-list-btn"
+          title="Copy a public link to your list">Share</button>
+        <button id="copy-inventory-link" type="button"
+          class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2" title="Copy Inventory Link">
+          <span id="copy-icon" aria-hidden="true">📋</span>
+          <span id="copy-label">Copy link</span>
+        </button>
       </div>
       <div class="btn-group" role="group" aria-label="View switcher">
-        <a href="?module=userspecies&view=table" class="btn btn-sm btn-outline-secondary" data-view="table">Table</a>
-        <a href="?module=userspecies&view=excel" class="btn btn-sm btn-outline-secondary" data-view="excel">Excel</a>
-        <a href="?module=userspecies&view=cards" class="btn btn-sm btn-outline-secondary" data-view="cards">Cards</a>
+        <!-- <a href="?module=userspecies&view=table" class="btn btn-sm btn-outline-secondary" data-view="table">Table</a> -->
+        <!-- <a href="?module=userspecies&view=excel" class="btn btn-sm btn-outline-secondary" data-view="excel">Excel</a> -->
+        <!-- <a href="?module=userspecies&view=cards" class="btn btn-sm btn-outline-secondary" data-view="cards">Cards</a> -->
       </div>
     </div>
   </div>
-  <div id="userspecies-host"><p>Loading…</p></div>
+  <div id="userspecies-host">
+    <p>Loading…</p>
+  </div>
 </div>
