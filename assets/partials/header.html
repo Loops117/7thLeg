@@ -4,8 +4,11 @@
     <a class="navbar-brand logo-area navbar-thin" href="/index.html">
       <img src="/assets/images/logo.png" alt="7th Leg Logo" style="max-height:60px;">
     </a>
-<div class="navbar-collapse navbar-thin show" id="navbarNav">
+    <div class="navbar-collapse navbar-thin show" id="navbarNav">
       <ul class="navbar-nav ms-auto navbar-thin align-items-center">
+
+        <!-- DIAG bell mount -->
+        <li class="nav-item" id="notif-bell-mount"></li>
 
         <!-- User Login/Dropdown placeholder -->
         <li class="nav-item dropdown" id="nav-user">
@@ -20,3 +23,28 @@
     </div>
   </div>
 </nav>
+
+<!-- Notifications Bell Mount (DIAG) -->
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  import { mountHeaderBell } from '/assets/js/header-bell.debug.js?v=diag1';
+
+  const supabase = window.supabase || (
+    (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) ? createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null
+  );
+
+  function ready(fn){ document.readyState !== 'loading' ? fn() : document.addEventListener('DOMContentLoaded', fn); }
+
+  async function mountNow() {
+    try {
+      const client = window.supabase || supabase;
+      if (!client) return;
+      await mountHeaderBell({ supabase: client, containerSelector: '#notif-bell-mount', position: 'append' });
+    } catch (e) {
+      console.error('[notifications-bell] mount failed:', e);
+    }
+  }
+
+  if (supabase || window.supabase) { ready(mountNow); }
+  else { window.addEventListener('supabase-ready', () => ready(mountNow), { once: true }); }
+</script>

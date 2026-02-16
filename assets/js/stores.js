@@ -249,7 +249,7 @@
   }
 
   /* ------------------------------ boot ------------------------------ */
-  document.addEventListener("DOMContentLoaded", async function(){
+  async function boot(){
     var box = document.getElementById("store-table-container");
     if (!box) return; // not on this page
     var supabase = await waitForSupabase();
@@ -293,5 +293,12 @@
     };
 
     STATE.draw(); // initial
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+
 })();

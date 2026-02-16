@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Directory - 7th Leg</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div id="header"></div>
+  <!-- ADMIN GATE: shown while checking / if not admin -->
+<div id="admin-denied" class="container py-5">
+  <div class="alert alert-warning text-center">
+    <h2 class="mb-2">Checking admin access…</h2>
+    <div class="small text-muted">If this gets stuck, open DevTools → Console.</div>
+    <a href="/index.html" class="btn btn-dark mt-3">Home</a>
+  </div>
+</div>
+
+<!-- ADMIN CONTENT: everything admin-only goes inside this -->
+<div id="admin-content" style="display:none;">
+  <!-- keep your existing .container (tabs + table containers) INSIDE here -->
+
+  <div class="container py-5">
+    <h2 class="mb-4 text-center">Admin Directory</h2>
+
+    <ul class="nav nav-tabs" id="dirTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab" aria-controls="users-pane" aria-selected="true">
+          Users
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="stores-tab" data-bs-toggle="tab" data-bs-target="#stores-pane" type="button" role="tab" aria-controls="stores-pane" aria-selected="false">
+          Stores
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="expos-tab" data-bs-toggle="tab" data-bs-target="#expos-pane" type="button" role="tab" aria-controls="expos-pane" aria-selected="false">
+          Expos
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content pt-3">
+      <div class="tab-pane fade show active" id="users-pane" role="tabpanel" aria-labelledby="users-tab">
+        <div id="user-table-container">
+          <p class="text-muted">Loading users…</p>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="stores-pane" role="tabpanel" aria-labelledby="stores-tab">
+        <div id="store-table-container">
+          <p class="text-muted">Loading stores…</p>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="expos-pane" role="tabpanel" aria-labelledby="expos-tab">
+        <div id="expo-table-container">
+          <p class="text-muted">Loading expos…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+  <div id="footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/assets/js/config.js"></script>
+  <script src="/assets/js/include.js"></script>
+  <script src="/assets/js/header-auth.js"></script>
+  <script>
+(async function adminGate(){
+  const denied = document.getElementById("admin-denied");
+  const content = document.getElementById("admin-content");
+
+  function showDenied(){
+    if (content) content.style.display = "none";
+    if (denied) denied.style.display = "";
+  }
+  function showAdmin(){
+    if (denied) denied.style.display = "none";
+    if (content) content.style.display = "";
+  }
+
+  // Supabase must exist (config.js should set window.supabase)
+  if (!window.supabase || !window.supabase.auth) {
+    console.error("Supabase not initialized. Check /assets/js/config.js and supabase-js include.");
+    showDenied();
+    return;
+  }
+
+  // Must be logged in
+  const { data, error } = await window.supabase.auth.getUser();
+  const user = data && data.user;
+  if (error || !user) {
+    console.warn("No user session", error);
+    showDenied();
+    return;
+  }
+
+  // Must be admin (expects profiles.role === "admin")
+  const prof = await window.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (prof.error) {
+    console.error("Profile lookup failed (RLS?)", prof.error);
+    showDenied();
+    return;
+  }
+
+  const role = String((prof.data && prof.data.role) || "").toLowerCase();
+  if (role !== "admin") {
+    showDenied();
+    return;
+  }
+
+  // ✅ Admin passed: show content and load the tab scripts
+  showAdmin();
+
+  function loadScript(src){
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("Failed to load " + src));
+      document.body.appendChild(s);
+    });
+  }
+
+  try{
+    await loadScript("/assets/js/users.js");
+    await loadScript("/assets/js/stores.js");
+    await loadScript("/assets/js/expos.js");
+    
+  }catch(e){
+    console.error(e);
+    // If scripts fail, deny (or you can show a nicer admin error message)
+    showDenied();
+  }
+})();
+</script>
+
+</body>
+</html>

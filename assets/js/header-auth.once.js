@@ -87,7 +87,7 @@
 
     if (!user) {
       container.innerHTML = `
-        <a class="btn btn-sm btn-outline-success" href="/auth/login.html">Sign in</a>
+        <a class="btn btn-sm btn-outline-success" href="/login.html?redirect=${encodeURIComponent(location.href)}">Sign in</a>
       `;
       return;
     }
@@ -99,7 +99,10 @@
           <strong class="small">${escapeHtml(name)}</strong>
           <a class="small text-decoration-none" href="/communityhub/hub.html?module=profile&id=${encodeURIComponent(user.id)}">My profile</a>
         </div>
-        <a class="btn btn-sm btn-outline-secondary ms-2" href="/auth/logout.html">Logout</a>
+        <button class="btn btn-sm btn-outline-secondary ms-2" type="button"
+  onclick="(async()=>{ try{ await window.supabase?.auth?.signOut(); } finally{ window.location.href='/index.html'; } })()">
+  Logout
+</button>
       </div>
     `;
   }
@@ -142,18 +145,18 @@
       bell.id = 'nav-notifications';
       bell.className = 'nav-item dropdown';
 
-      bell.innerHTML = `
-        <a class="nav-link position-relative" href="#" id="notifBell" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
-          <span class="me-1">🔔</span>
-          <span id="notifBadge" class="badge bg-danger rounded-pill position-absolute translate-middle" style="top:6px; right:0; display:none;">0</span>
-        </a>
-        <ul class="dropdown-menu dropdown-menu-end" id="notifMenu" style="max-height:70vh; overflow:auto;">
-          <li><h6 class="dropdown-header">Notifications</h6></li>
-          <li id="notifItems"><div class="px-3 py-2 small text-muted">Loading…</div></li>
-          <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="/communityhub/hub.html?module=messages%2Fmessages_inbox">Open Inbox</a></li>
-        </ul>
-      `;
+     // bell.innerHTML = `
+     //   <a class="nav-link position-relative" href="#" id="notifBell" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
+     //     <span class="me-1">🔔</span>
+     //     <span id="notifBadge" class="badge bg-danger rounded-pill position-absolute translate-middle" style="top:6px; right:0; display:none;">0</span>
+     //   </a>
+     //   <ul class="dropdown-menu dropdown-menu-end" id="notifMenu" style="max-height:70vh; overflow:auto;">
+     //     <li><h6 class="dropdown-header">Notifications</h6></li>
+     //     <li id="notifItems"><div class="px-3 py-2 small text-muted">Loading…</div></li>
+     //     <li><hr class="dropdown-divider"></li>
+     //     <li><a class="dropdown-item" href="/communityhub/hub.html?module=messages%2Fmessages_inbox">Open Inbox</a></li>
+     //   </ul>
+     // `;
 
       // Insert before user menu
       ul.insertBefore(bell, userLi);

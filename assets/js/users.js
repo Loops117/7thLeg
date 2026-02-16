@@ -295,7 +295,7 @@
   }
 
   /* ------------------------------ boot ------------------------------ */
-  document.addEventListener("DOMContentLoaded", async function(){
+  async function boot(){
     var supabase = await waitForSupabase();
     var box = document.getElementById("user-table-container");
     if (!supabase){ if (box) box.innerHTML = '<div class="alert alert-danger">Supabase not initialized.</div>'; return; }
@@ -345,5 +345,11 @@
     };
 
     STATE.draw(); // initial render
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
 })();
