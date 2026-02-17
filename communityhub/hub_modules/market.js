@@ -156,6 +156,15 @@ const supabase = window.supabase;
     }
 
     els.grid.innerHTML = rows.map(renderCard).join("");
+
+    // Mark descriptions that are actually truncated so we can show the "See more" link.
+    // (Measured in the collapsed state.)
+    requestAnimationFrame(() => {
+      els.grid.querySelectorAll(".market-desc").forEach(d => {
+        d.classList.remove("is-truncated");
+        if (d.scrollHeight > d.clientHeight + 1) d.classList.add("is-truncated");
+      });
+    });
   }
 
   function renderCard(l) {
@@ -185,16 +194,27 @@ const supabase = window.supabase;
     const price = formatPrice(l.price_per_batch, l.currency);
     const fallback = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
+    // Product page URL (lives under hub_modules/market/)
+    const productUrl = `/communityhub/hub.html?module=market/product&listing=${encodeURIComponent(l.id)}${storeSlug ? `&store=${encodeURIComponent(storeSlug)}` : ""}`;
+
     return `
     <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-      <div class="card h-100 shadow-sm">
-        <div class="ratio ratio-1x1 bg-light">
+      <div class="card shadow-sm market-card">
+        <a href="${productUrl}" class="ratio ratio-1x1 bg-light" style="text-decoration:none;">
           <img src="${escapeAttr(l.cover_image) || fallback}" alt="${escapeAttr(title)}" class="card-img-top" style="object-fit:cover;">
-        </div>
+        </a>
         <div class="card-body d-flex flex-column">
-          <div class="d-flex align-items-center gap-2 small mb-1">${logoHtml(sp.logo_url, storeName, 18)}<a class="text-decoration-none" href="${storeSlug ? `/communityhub/hub.html?module=store/view_store&slug=${encodeURIComponent(storeSlug)}` : `/communityhub/hub.html?module=store/view_store&id=${encodeURIComponent(storeId)}`}">${escapeHTML(storeName)}</a></div>
-          <h6 class="mb-1">${escapeHTML(title)}</h6>
-          ${desc ? `<p class="mb-2 small text-muted" style="min-height:2.5em">${escapeHTML(desc).slice(0,150)}${desc.length>150?'…':''}</p>` : ``}
+          <div class="d-flex align-items-center gap-2 small mb-1">
+            ${logoHtml(sp.logo_url, storeName, 18)}
+            <a class="text-decoration-none" href="${storeSlug ? `/communityhub/hub.html?module=store/view_store&slug=${encodeURIComponent(storeSlug)}` : `/communityhub/hub.html?module=store/view_store&id=${encodeURIComponent(storeId)}`}">${escapeHTML(storeName)}</a>
+          </div>
+
+          <h6 class="mb-1">
+            <a href="${productUrl}" class="text-decoration-none">${escapeHTML(title)}</a>
+          </h6>
+
+          ${desc ? `<div class="mb-2 small text-muted market-desc">${sanitizeHtml(desc)}</div><a href="${productUrl}" class="market-see-more small">See more</a>` : ``}
+
           <div class="mt-auto d-flex align-items-center justify-content-between">
             <div class="small text-muted">${batchCount !== null ? `Batches: ${batchCount}` : ``}</div>
             <div class="fw-semibold">${price}</div>
@@ -205,7 +225,77 @@ const supabase = window.supabase;
   }
 
   /* -------------------------------- utils -------------------------------- */
-  function setStatus(msg){ if (els.status) els.status.textContent = msg || ""; }
+  // Allows simple markup like <b> and <br> in descriptions while stripping unsafe HTML.
+  function sanitizeHtml(input) {
+    const htmlStr = String(input || "");
+    if (!htmlStr) return "";
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${htmlStr}</div>`, "text/html");
+    const root = doc.body.firstElementChild;
+
+    const ALLOWED_TAGS = new Set(["B","BR","STRONG","I","EM","U","P","UL","OL","LI","SPAN","SMALL","A"]);
+    const ALLOWED_ATTRS = {
+      "A": new Set(["href","target","rel"])
+    };
+
+    function clean(node) {
+      if (node.nodeType === Node.TEXT_NODE) return;
+
+      // remove comments / unknown node types
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        node.remove();
+        return;
+      }
+
+      const tag = node.tagName.toUpperCase();
+
+      if (!ALLOWED_TAGS.has(tag)) {
+        // Replace disallowed element with its text content
+        const text = doc.createTextNode(node.textContent || "");
+        node.replaceWith(text);
+        return;
+      }
+
+      // Strip all attributes except allowlist for that tag
+      const allowed = ALLOWED_ATTRS[tag] || new Set();
+      [...node.attributes].forEach(attr => {
+        const name = attr.name.toLowerCase();
+        if (name.startsWith("on") || name === "style") {
+          node.removeAttribute(attr.name);
+          return;
+        }
+        if (!allowed.has(attr.name)) node.removeAttribute(attr.name);
+      });
+
+      // Special rules for links
+      if (tag === "A") {
+        const hrefVal = String(node.getAttribute("href") || "").trim();
+        const ok =
+          hrefVal.startsWith("/") ||
+          hrefVal.startsWith("#") ||
+          /^https?:\/\//i.test(hrefVal) ||
+          /^mailto:/i.test(hrefVal);
+
+        if (!ok) {
+          const text = doc.createTextNode(node.textContent || "");
+          node.replaceWith(text);
+          return;
+        }
+
+        node.setAttribute("href", hrefVal);
+        node.setAttribute("rel", "noopener noreferrer");
+        if (!node.getAttribute("target")) node.setAttribute("target", "_blank");
+      }
+
+      [...node.childNodes].forEach(clean);
+    }
+
+    [...root.childNodes].forEach(clean);
+    return root.innerHTML;
+  }
+
+function setStatus(msg){ if (els.status) els.status.textContent = msg || ""; }
   function debounce(fn, ms){ let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null,args), ms); }; }
   function ilike(s){ return `%${String(s).replace(/[%_]/g, m => "\\"+m)}%`; }
   function escapeHTML(s){ return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

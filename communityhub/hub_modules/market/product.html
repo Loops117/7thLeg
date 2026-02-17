@@ -1,0 +1,85 @@
+<div class="container-fluid py-3">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h4 class="mb-0" id="product-title">Loading…</h4>
+      <div class="small text-muted" id="product-seller-line"></div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm" href="/communityhub/hub.html?module=market">Back to Market</a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-5">
+      <div class="card shadow-sm">
+        <div class="ratio ratio-1x1 bg-light">
+          <img id="product-image" alt="Product image" style="object-fit:cover;" />
+        </div>
+      </div>
+
+      <div id="product-thumbs" class="mt-2" style="display:none;">
+        <div class="d-flex flex-wrap gap-2" id="product-thumbs-inner"></div>
+      </div>
+
+      <div class="mt-2 small text-muted" id="product-image-note"></div>
+    </div>
+
+    <div class="col-12 col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-body">
+
+          <!-- Price + Meta + Buy Button Row -->
+          <div class="d-flex justify-content-between align-items-start flex-wrap mb-3">
+            <div>
+              <div class="fs-4 fw-semibold" id="product-price"></div>
+              <div class="small text-muted" id="product-qty"></div>
+              <div id="product-meta" class="mt-1"></div>
+            </div>
+
+            <div class="text-end">
+              <button class="btn btn-primary" id="buy-button">Buy</button>
+              <div class="small text-muted mt-1" id="buy-note"></div>
+            </div>
+          </div>
+
+          <!-- Buying Guide -->
+          <div class="alert alert-info mt-2 mb-0 small" id="buying-info" style="font-size:0.85rem;">
+            <div class="fw-semibold mb-1"><b><center>How buying works</center></b></div>
+            <div>
+              <b>Carts by Vendor</b><br>
+              Items that are selected for purchase are placed in the users cart and organized by vendor.
+              Once the user is ready, the cart can be committed to the approval process by the user.
+              <br><br><b>Approval Process</b><br>
+              Once a cart is committed to a vendor, an agreement is made by the user to pay for the entire cart once approved.
+              If the cart is refused, the user may be notified of any changes that may need to happen to complete the order.
+              <br><br><b>Order Completion</b><br>
+              After the cart has been approved, users have 48 hours to complete payment before the cart is subject to the approval process again.
+            </div>
+          </div>
+
+          <hr />
+
+          <h6>Description</h6>
+          <div class="text-muted" id="product-description"></div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mt-3" id="similar-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">Similar Live Listings</h6>
+            <button class="btn btn-outline-secondary btn-sm" id="toggle-similar">Show</button>
+          </div>
+          <div class="collapse mt-3" id="similar-collapse">
+            <div class="small text-muted mb-2">
+              These are similar names from other sellers. This is not a purchase comparison yet.
+            </div>
+            <div id="similar-list" class="d-flex flex-column gap-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/communityhub/hub_modules/market/product.js"></script>
