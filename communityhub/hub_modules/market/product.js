@@ -116,6 +116,9 @@ console.log("✅ market/product.js loaded");
     meta: document.getElementById("product-meta"),
     desc: document.getElementById("product-description"),
     buyBtn: document.getElementById("buy-button"),
+    qtyInput: document.getElementById("qty-input"),
+    qtyMinus: document.getElementById("qty-minus"),
+    qtyPlus: document.getElementById("qty-plus"),
     buyNote: document.getElementById("buy-note"),
     toggleSimilar: document.getElementById("toggle-similar"),
     similarCollapse: document.getElementById("similar-collapse"),
@@ -156,10 +159,126 @@ console.log("✅ market/product.js loaded");
     return;
   }
 
-  els.buyBtn?.addEventListener("click", () => {
-    if (window.showToast) return window.showToast("Coming soon", "Buying is not enabled yet.");
-    alert("Coming soon: Buying is not enabled yet.");
-  });
+  function clampInt(v, min, max) {
+    const n = Math.floor(Number(v));
+    if (!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function toast(title, msg) {
+    if (window.showToast) return window.showToast(title, msg);
+    alert(`${title}\n\n${msg}`);
+  }
+
+  function getSelectedQty(maxQty) {
+    const raw = els.qtyInput?.value ?? "1";
+    const q = clampInt(raw, 1, maxQty);
+    if (els.qtyInput) els.qtyInput.value = String(q);
+    return q;
+  }
+
+  function setQtyControls(maxQty) {
+    if (els.qtyInput) {
+      els.qtyInput.min = "1";
+      els.qtyInput.max = String(maxQty);
+      els.qtyInput.value = "1";
+      els.qtyInput.addEventListener("change", () => getSelectedQty(maxQty));
+      els.qtyInput.addEventListener("input", () => {
+        // keep it numeric-ish; final clamp on change/click
+        if (els.qtyInput.value === "") return;
+        els.qtyInput.value = String(els.qtyInput.value).replace(/[^\d]/g, "");
+      });
+    }
+    els.qtyMinus?.addEventListener("click", () => {
+      const cur = getSelectedQty(maxQty);
+      const next = clampInt(cur - 1, 1, maxQty);
+      if (els.qtyInput) els.qtyInput.value = String(next);
+    });
+    els.qtyPlus?.addEventListener("click", () => {
+      const cur = getSelectedQty(maxQty);
+      const next = clampInt(cur + 1, 1, maxQty);
+      if (els.qtyInput) els.qtyInput.value = String(next);
+    });
+  }
+
+  async function getAuthedUserId() {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return data?.user?.id || null;
+  }
+
+  async function getOrCreateDraftCart(buyerId, storeId) {
+    // If buyer already has an "active" cart for this vendor, we can only add to it if it's still draft.
+    const { data: carts, error } = await supabase
+      .from("store_carts")
+      .select("id, status")
+      .eq("buyer_id", buyerId)
+      .eq("store_id", storeId)
+      .in("status", ["draft", "submitted", "approved", "ready_for_payment"])
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    if (carts && carts.length) {
+      const c = carts[0];
+      if (c.status !== "draft") {
+        return { blocked: true, status: c.status, cartId: c.id };
+      }
+      return { blocked: false, cartId: c.id };
+    }
+
+    const { data: newCart, error: insErr } = await supabase
+      .from("store_carts")
+      .insert({ buyer_id: buyerId, store_id: storeId, status: "draft" })
+      .select("id, status")
+      .single();
+
+    if (insErr) throw insErr;
+    return { blocked: false, cartId: newCart.id };
+  }
+
+  async function addListingToCart({ listingId, storeId, addQty }) {
+    const buyerId = await getAuthedUserId();
+    if (!buyerId) {
+      toast("Login required", "Please sign in to add items to your cart.");
+      return { ok: false, reason: "no_user" };
+    }
+
+    const cart = await getOrCreateDraftCart(buyerId, storeId);
+    if (cart.blocked) {
+      toast("Cart locked", "You already submitted this vendor cart for approval. Finish that cart before adding more items.");
+      return { ok: false, reason: "cart_locked" };
+    }
+
+    // Upsert item qty (increment if exists)
+    const { data: existingItem, error: itemErr } = await supabase
+      .from("store_cart_items")
+      .select("id, qty")
+      .eq("cart_id", cart.cartId)
+      .eq("listing_id", listingId)
+      .maybeSingle();
+
+    if (itemErr) throw itemErr;
+
+    if (existingItem?.id) {
+      const { error: updErr } = await supabase
+        .from("store_cart_items")
+        .update({ qty: Number(existingItem.qty || 0) + Number(addQty || 0) })
+        .eq("id", existingItem.id);
+
+      if (updErr) throw updErr;
+    } else {
+      const { error: insItemErr } = await supabase
+        .from("store_cart_items")
+        .insert({ cart_id: cart.cartId, listing_id: listingId, qty: addQty });
+
+      if (insItemErr) throw insItemErr;
+    }
+
+    return { ok: true, cartId: cart.cartId };
+  }
+
 
   (async () => {
     // Listing
@@ -224,6 +343,61 @@ const isDry = listing.product_type === "drygood";
     els.price.textContent = `${(listing.currency || "USD").toUpperCase()} ${money(listing.price_per_batch)}`;
     els.qty.textContent = `Available: ${safeText(listing.qty_available)} batch(es)`;
 
+    const available = Number(listing.qty_available);
+    const maxQty = Number.isFinite(available) && available > 0 ? Math.floor(available) : 1;
+
+    // Quantity picker setup
+    setQtyControls(maxQty);
+
+    // Disable buying when unavailable/inactive
+    const canBuy = Boolean(listing.active) && (Number.isFinite(available) ? available > 0 : true);
+    if (!canBuy) {
+      if (els.buyBtn) els.buyBtn.disabled = true;
+      if (els.qtyInput) els.qtyInput.disabled = true;
+      if (els.qtyMinus) els.qtyMinus.disabled = true;
+      if (els.qtyPlus) els.qtyPlus.disabled = true;
+      if (els.buyNote) els.buyNote.textContent = "This item is not available right now.";
+    } else if (els.buyNote) {
+      els.buyNote.textContent = "Adds to your cart. You'll submit for vendor approval later.";
+    }
+
+    // Buy/Add-to-cart
+    if (els.buyBtn) {
+      els.buyBtn.onclick = async () => {
+        if (!canBuy) return;
+
+        const chosen = getSelectedQty(maxQty);
+        if (Number.isFinite(available) && chosen > available) {
+          toast("Quantity updated", "Requested quantity exceeds current stock. Adjusted to what's available.");
+        }
+        const qtyToAdd = Number.isFinite(available) ? Math.min(chosen, available) : chosen;
+
+        try {
+          els.buyBtn.disabled = true;
+          const prevText = els.buyBtn.textContent;
+          els.buyBtn.textContent = "Adding…";
+
+          const res = await addListingToCart({
+            listingId: listing.id,
+            storeId: listing.store_id,
+            addQty: qtyToAdd
+          });
+
+          if (res?.ok) {
+            toast("Added to cart", `Added ${qtyToAdd} to your cart.`);
+            if (els.qtyInput) els.qtyInput.value = "1"; // reset picker after click
+          }
+          els.buyBtn.textContent = prevText;
+          els.buyBtn.disabled = false;
+        } catch (e) {
+          console.error("❌ add to cart failed", e);
+          toast("Error", "Couldn't add this item to your cart. Please try again.");
+          els.buyBtn.textContent = "Buy";
+          els.buyBtn.disabled = false;
+        }
+      };
+    }
+
     if (els.image) {
       els.image.src = imageUrl || "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
     }
@@ -256,8 +430,8 @@ const isDry = listing.product_type === "drygood";
     }
 els.meta.innerHTML = `
       <div class="small text-muted">
-        <div><span class="fw-semibold">Type:</span> ${esc(listing.product_type || "")}</div>
         <div><span class="fw-semibold">Batch Size:</span> ${esc(listing.batch_size || 1)}</div>
+        <div><span class="fw-semibold">Type:</span> ${esc(listing.product_type || "")}</div>
       </div>
     `;
     els.desc.innerHTML = desc ? sanitizeHtml(desc) : "<span class=\"text-muted\">No description yet.</span>";

@@ -37,14 +37,21 @@
             </div>
 
             <div class="text-end">
-              <button class="btn btn-primary" id="buy-button">Buy</button>
+              <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+                <div class="input-group input-group-sm" style="width: 140px;">
+                  <button class="btn btn-outline-secondary" type="button" id="qty-minus" aria-label="Decrease quantity">−</button>
+                  <input type="number" class="form-control text-center" id="qty-input" value="1" min="1" step="1" inputmode="numeric" aria-label="Quantity">
+                  <button class="btn btn-outline-secondary" type="button" id="qty-plus" aria-label="Increase quantity">+</button>
+                </div>
+                <button class="btn btn-primary" id="buy-button">Buy</button>
+              </div>
               <div class="small text-muted mt-1" id="buy-note"></div>
             </div>
           </div>
 
           <!-- Buying Guide -->
           <div class="alert alert-info mt-2 mb-0 small" id="buying-info" style="font-size:0.85rem;">
-            <div class="fw-semibold mb-1"><b><center>How buying works</center></b></div>
+            <div class="fw-semibold mb-1"><Center><b>How buying works</b></Center></div>
             <div>
               <b>Carts by Vendor</b><br>
               Items that are selected for purchase are placed in the users cart and organized by vendor.
