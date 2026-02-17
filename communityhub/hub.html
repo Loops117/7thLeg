@@ -132,6 +132,34 @@
       color: #fff;
     }
 
+    /* --- Market submenu (My Cart) --- */
+    .hub-submenu {
+      margin-top: -0.25rem;
+      margin-bottom: 0.4rem;
+      padding-left: 0.5rem;
+      display: none;
+    }
+    .hub-submenu.show { display: block; }
+
+    #hub-sidebar .hub-sub-link {
+      padding: 0.45rem 1rem;
+      margin-bottom: 0.25rem;
+      border-radius: 6px;
+      font-weight: 500;
+      color: #333;
+      background: transparent;
+    }
+    #hub-sidebar .hub-sub-link:hover {
+      background-color: #e9ecef;
+      color: #000;
+    }
+    #hub-sidebar .hub-sub-link.active-sub {
+      background-color: #d1e7dd; /* bootstrap success-subtle */
+      color: #0f5132;           /* bootstrap success text */
+      border: 1px solid #badbcc;
+    }
+
+
     #hub-sidebar .mt-auto {
       margin-top: auto;
     }
@@ -273,7 +301,12 @@
        <!--<li class="nav-item"><a class="nav-link" href="#" data-module="messages/messages_inbox">📫 Messages</a></li> -->
         <li class="nav-item"><a class="nav-link" href="#" data-module="expo_tracker">📋 Expo Tracker</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-module="auctions_trades">💰 Auctions & Trades</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-module="market">🛒 Market</a></li>
+                <li class="nav-item" id="nav-market-item">
+          <a class="nav-link" href="#" data-module="market" id="nav-market-link">🛍️ Market</a>
+          <div class="hub-submenu" id="market-submenu" aria-label="Market submenu">
+            <a class="hub-sub-link nav-link" href="#" data-module="market/cart" id="nav-market-cart">   <small>🛒 My Cart</small></a>
+          </div>
+        </li>
 
         <!-- NEW: My Store (hidden by default, shown via JS if eligible) -->
         <li class="nav-item" id="nav-store-item" style="display:none;">

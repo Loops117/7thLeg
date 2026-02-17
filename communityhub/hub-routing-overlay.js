@@ -17,11 +17,31 @@
     return usp.get("module") || "home";
   }
 
-  function setActiveByModule(mod) {
+    function setActiveByModule(mod) {
     const links = document.querySelectorAll("#hub-sidebar .nav-link");
     links.forEach(l => l.classList.remove("active"));
-    const el = document.querySelector(`#hub-sidebar .nav-link[data-module="${mod}"]`);
-    if (el) el.classList.add("active");
+    // Submenu active state
+    const cartLink = document.getElementById("nav-market-cart");
+    cartLink?.classList.remove("active-sub");
+
+    const exact = document.querySelector(`#hub-sidebar .nav-link[data-module="${mod}"]`);
+    const parent = (mod || "").split("/")[0] || mod;
+
+    // Always prefer exact match (for normal pages), otherwise fall back to parent module highlight
+    const target = exact || document.querySelector(`#hub-sidebar .nav-link[data-module="${parent}"]`);
+    if (target) target.classList.add("active");
+
+    // Market submenu visibility (keep Market highlighted for market/* modules like market/product)
+    const submenu = document.getElementById("market-submenu");
+    if (submenu) {
+      if (parent === "market") submenu.classList.add("show");
+      else submenu.classList.remove("show");
+    }
+
+    // Highlight "My Cart" within the submenu (without stealing the main active highlight)
+    if (mod === "market/cart") {
+      cartLink?.classList.add("active-sub");
+    }
   }
 
   function pushAndLoad(mod, params) {
